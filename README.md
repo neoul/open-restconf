@@ -1,6 +1,11 @@
-# RESTCONF
+# Open RESTCONF
 
-`RESTCONF` is a network management protocol based on HTTP [RFC7230], for configuring data defined in `YANG version 1 [RFC6020]` or `YANG version 1.1 [RFC7950]`, using the datastore concepts defined in `NETCONF [RFC6241]`.
+This is simple implementation of RESTCONF protocol [RFC8040].
+It uses `gofiber` package for the HTTP server facilities of the RESTCONF protocol and `yangtree` package for the YANG-defined data.
+
+## RESTCONF [RFC8040]
+
+`RESTCONF` is a network management protocol based on HTTP [RFC7230], for configuring data defined in YANG version 1 [RFC6020] or YANG version 1.1 [RFC7950], using the datastore concepts defined in NETCONF [RFC6241].
 
 `RESTCONF` uses HTTP methods to provide `CRUD` operations on a conceptual datastore containing YANG-defined data, which is compatible with a server that implements NETCONF datastores.
 
@@ -8,22 +13,21 @@ Configuration data and state data are exposed as resources that can be retrieved
 
 Data-model-specific RPC operations defined with the YANG `rpc` or `action` statements can be invoked with the `POST` method. Data-model-specific event notifications defined with the YANG `notification` statement can be accessed.
 
-> https://datatracker.ietf.org/doc/html/rfc8040
 
+## RESTCONF Contents - Media Types (Content-Type)
 
-```bash
-wget -q -O - http://localhost:10000/articles
-wget -q -O - http://localhost:10000/articles/1
-wget -q -O - http://localhost:10000/articles/2
-wget --post-file test.json -q -O - http://localhost:10000/articles
-```
-
-## RESTCONF Media Types (Content-Type)
+Open RESTCONF provides the following RESTCONF-standard encoding for the YANG-defined data. 
 
 - "application/yang-data+xml"
 - "application/yang-data+json"
 
-### "application/yang-data+json"
+It also provides another encoding format.
+
+- "application/yang-data+yaml"
+- "text/json", "text/yaml", "text/xml"
+- "application/xml", "application/json", "application/yaml"
+
+### Metadata
 
 - Each conceptual YANG data node is encoded according to [RFC7951].
 - A metadata annotation is encoded according to [RFC7952].
@@ -148,6 +152,23 @@ curl --header "Accept: application/xrd+xml" localhost:3000/.well-known/host-meta
         <album-count>59</album-count>
         <song-count>374</song-count>
       </library>
+
+      HTTP/1.1 400 Bad Request
+      Date: Thu, 26 Jan 2017 20:56:30 GMT
+      Server: example-server
+      Content-Type: application/yang-data+json
+
+      { "ietf-restconf:errors" : {
+          "error" : [
+            {
+              "error-type" : "protocol",
+              "error-tag" : "invalid-value",
+              "error-path" : "/example-ops:input/delay",
+              "error-message" : "Invalid input parameter"
+            }
+          ]
+        }
+      }
 ```
 
 ### Response Header
@@ -190,4 +211,13 @@ curl --header "Accept: application/xrd+xml" localhost:3000/.well-known/host-meta
 
    identifier = (ALPHA / "_")
                 *(ALPHA / DIGIT / "_" / "-" / ".")
+```
+
+
+
+```bash
+wget -q -O - http://localhost:10000/articles
+wget -q -O - http://localhost:10000/articles/1
+wget -q -O - http://localhost:10000/articles/2
+wget --post-file test.json -q -O - http://localhost:10000/articles
 ```

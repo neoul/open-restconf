@@ -1,11 +1,15 @@
 .DEFAULT_GOAL := help
 .EXPORT_ALL_VARIABLES:
 
+debug: ## build precompiled server for debug
+	go build -gcflags=all="-N -l" -o open-restconfd main.go response.go
+
 build: ## build restconf server
-	go build -o server main.go
+	go build -o open-restconfd main.go response.go
 
 run: build ## run restconf server
-	./server
+	./open-restconfd -f modules/example/example-jukebox.yang -f modules/example/example-ops.yang \
+	--startup-format yaml --startup testdata/jukebox.yaml
 
 watch: ## hot-reloading
 	reflex -s -r '\.go$$' make run
