@@ -1,0 +1,33 @@
+
+jukebox:
+  library:
+    album-count: 1
+    artist-count: 1
+    song-count: 2
+    artist:
+      The Kid LAROI, Justin Bieber:
+      아이유:
+        album[name='strawberry moon']:
+      BTS:
+        name: BTS
+        album[name=My Universe]:
+        album[name=MAP OF THE SOUL:7]:
+          song[name=Intro:Persona]:
+            location: http://localhost:3000/music/BTS/Intro_Persona
+            format: mp3
+            length: 174
+            name: Intro:Persona
+          song[name=Boy with Luv]:
+            location: http://localhost:3000/music/BTS/Boy_with_Luv
+            format: mp3
+            length: 174
+            name: Intro:Persona
+      
+  playlist[name=BTS-streaming]:
+    name: BTS-streaming
+    song[index=1]:
+      index: 1
+      id: /jukebox/library/artist[name=BTS]/album[name=MAP OF THE SOUL:7]/song[name=Intro:Persona]/name
+    song[index=2]:
+      index: 2
+      id: /jukebox/library/artist[name=BTS]/album[name=MAP OF THE SOUL:7]/song[name=Boy with L uv]/name
