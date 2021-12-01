@@ -13,22 +13,22 @@ module example-ops {
         description "Reboot operation.";
         input {
             leaf delay {
-            type uint32;
-            units "seconds";
-            default 0;
-            description
-                "Number of seconds to wait before initiating the
-                reboot operation.";
+                type uint32;
+                units "seconds";
+                default 0;
+                description
+                    "Number of seconds to wait before initiating the
+                    reboot operation.";
             }
             leaf message {
-            type string;
-            description
-                "Log message to display when reboot is started.";
+                type string;
+                description
+                    "Log message to display when reboot is started.";
             }
             leaf language {
-            type string;
-            description "Language identifier string.";
-            reference "RFC 5646.";
+                type string;
+                description "Language identifier string.";
+                reference "RFC 5646.";
             }
         }
     }
@@ -37,22 +37,22 @@ module example-ops {
             "Retrieve parameters used in the last reboot operation.";
         output {
             leaf reboot-time {
-            type uint32;
-            description
-                "The 'delay' parameter used in the last reboot
-                operation.";
+                type uint32;
+                description
+                    "The 'delay' parameter used in the last reboot
+                    operation.";
             }
             leaf message {
-            type string;
-            description
-                "The 'message' parameter used in the last reboot
-                operation.";
+                type string;
+                description
+                    "The 'message' parameter used in the last reboot
+                    operation.";
             }
             leaf language {
-            type string;
-            description
-                "The 'language' parameter used in the last reboot
-                operation.";
+                type string;
+                description
+                    "The 'language' parameter used in the last reboot
+                    operation.";
             }
         }
     }

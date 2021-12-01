@@ -58,7 +58,7 @@ It also provides another encoding format.
    |          |                                                       |
    | POST     | invoke an RPC operation                               |
    |          |                                                       |
-   | PUT      | <copy-config> (PUT on datastore)                      |
+   | PUT      | <copy-config> (PUT on rctrl)                      |
    |          |                                                       |
    | PUT      | <edit-config> (nc:operation="create/replace")         |
    |          |                                                       |
@@ -220,4 +220,11 @@ wget -q -O - http://localhost:10000/articles
 wget -q -O - http://localhost:10000/articles/1
 wget -q -O - http://localhost:10000/articles/2
 wget --post-file test.json -q -O - http://localhost:10000/articles
+```
+
+
+### curl example
+
+```bash
+curl -v --header "Accept: application/yang-data+xml" -H "Content-Type: application/json" -X POST http://localhost:8080/restconf/operations/reboot -d '{"input":{"message": "superman", "delay" : 30, "language":"english"}}'
 ```
