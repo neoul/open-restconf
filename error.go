@@ -191,18 +191,15 @@ func (et ErrorTag) Status() int {
 	}
 }
 
-func (rctrl *RestconfCtrl) SetError(c *fiber.Ctx, status int, etyp ErrorType, etag ErrorTag, emsg error) error {
-	if errorSchema == nil {
-		log.Fatalf("restconf: errors schema not loaded")
-	}
-	e, err := yangtree.NewWithValue(errorSchema.GetSchema("error"),
+func (rc *RESTCtrl) SetError(c *fiber.Ctx, respctrl *RespCtrl, status int, etyp ErrorType, etag ErrorTag, emsg error) error {
+	e, err := yangtree.NewWithValue(rc.schemaErrors.GetSchema("error"),
 		map[interface{}]interface{}{
 			"error-tag":  etag.Error(),
 			"error-type": etyp.Error(),
 			"error-path": c.Path(),
 		})
 	if err != nil {
-		log.Fatalf("restconf: errors/error schema not loaded")
+		log.Fatalf("restconf: fault in error report: %v", err)
 	}
 	if emsg != nil {
 		if fe, ok := emsg.(*fiber.Error); ok {
@@ -215,9 +212,17 @@ func (rctrl *RestconfCtrl) SetError(c *fiber.Ctx, status int, etyp ErrorType, et
 			}
 		}
 	}
-	rctrl.errors = append(rctrl.errors, e)
-	if rctrl.status != fiber.StatusOK {
-		rctrl.status = status
+
+	if respctrl == nil {
+		requestid := c.GetRespHeader("X-Request-Id")
+		if respctrl = rc.RespCtrl[requestid]; respctrl == nil {
+			log.Fatalf("restconf: response node %s not found", requestid)
+		}
+	}
+
+	respctrl.errors = append(respctrl.errors, e)
+	if respctrl.status != fiber.StatusOK {
+		respctrl.status = status
 	}
 	return nil
 }

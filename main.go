@@ -1,3 +1,4 @@
+// RFC8040 RESTCONF Protocol implementation
 package main
 
 import (
@@ -10,23 +11,33 @@ import (
 	"sync"
 
 	"github.com/gofiber/fiber"
+	"github.com/gofiber/fiber/middleware/logger"
+	"github.com/gofiber/fiber/middleware/requestid"
 	"github.com/neoul/yangtree"
 	"github.com/spf13/pflag"
 )
 
-type RestconfCtrl struct {
-	sync.RWMutex
-	yangtree.DataNode
-
-	status        int // HTTP response status
-	errors        []yangtree.DataNode
-	curnode       []yangtree.DataNode
-	isGroupSearch bool
+//
+type RespCtrl struct {
+	nodes       []yangtree.DataNode
+	errors      []yangtree.DataNode
+	groupSearch bool // true if searching multiple nodes
+	status      int  // HTTP response status
 }
 
-var (
-	errorSchema, restconfSchema *yangtree.SchemaNode
-)
+type RESTCtrl struct {
+	sync.RWMutex
+	DataRoot       yangtree.DataNode    // /restconf/data
+	RespCtrl       map[string]*RespCtrl // RequestID and its Response data
+	schemaErrors   *yangtree.SchemaNode
+	schemaRESTCONF *yangtree.SchemaNode
+	schemaData     *yangtree.SchemaNode
+	yangLibVersion string
+}
+
+func (rc *RESTCtrl) getRespCtrl(c *fiber.Ctx) *RespCtrl {
+	return rc.RespCtrl[c.GetRespHeader("X-Request-Id")]
+}
 
 var (
 	bindAddr      = pflag.StringP("bind-address", "b", ":8080", "bind to address:port")
@@ -39,6 +50,8 @@ var (
 )
 
 func main() {
+	rc := &RESTCtrl{RespCtrl: make(map[string]*RespCtrl)}
+
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 	if *help {
@@ -72,41 +85,54 @@ func main() {
 			log.Fatalf("restconf: error in loading: %v", err)
 		}
 	}
-	// loading restconf.error
+	// load restconf.errors.
 	yangerrorSchema := rootSchema.ExtSchema["yang-errors"]
 	if yangerrorSchema == nil {
-		log.Fatalf("restconf: unable to load restconf schema")
+		log.Fatalf("restconf: unable to load yang-errors schema")
+	}
+	rc.schemaErrors = yangerrorSchema.GetSchema("errors")
+	if rc.schemaErrors == nil {
+		log.Fatalf("restconf: unable to load yang-errors/errors schema")
 	}
 
-	// loading restconf.top
+	// load restconf.top.
 	yangapiSchema := rootSchema.ExtSchema["yang-api"]
 	if yangapiSchema == nil {
+		log.Fatalf("restconf: unable to load yang-api schema")
+	}
+	if rootSchema.GetYangLibrary().Exist("module[name=ietf-yang-library][revision=2016-06-21]") {
+		rc.yangLibVersion = "2016-06-21"
+	}
+
+	// move all schema nodes in the root schema to /restconf/data or /restconf/operations nodes.
+	rc.schemaRESTCONF = yangapiSchema.GetSchema("restconf")
+	if rc.schemaRESTCONF == nil {
 		log.Fatalf("restconf: unable to load restconf schema")
 	}
-	var ylibrev string
-	if rootSchema.GetYangLibrary().Exist("module[name=ietf-yang-library][revision=2016-06-21]") {
-		ylibrev = "2016-06-21"
-	}
-	errorSchema = yangerrorSchema.GetSchema("errors")
-	restconfSchema = yangapiSchema.GetSchema("restconf")
-
-	// All schema nodes in root schema move to /restconf/data or /restconf/operations nodes.
 	for i := range rootSchema.Children {
 		if rootSchema.Children[i].RPC != nil {
-			restconfSchema.GetSchema("operations").Append(true, rootSchema.Children[i])
+			rc.schemaRESTCONF.GetSchema("operations").Append(true, rootSchema.Children[i])
 		} else {
-			restconfSchema.GetSchema("data").Append(true, rootSchema.Children[i])
+			rc.schemaRESTCONF.GetSchema("data").Append(true, rootSchema.Children[i])
 		}
 	}
-	restroot, err := yangtree.NewWithValue(restconfSchema,
+	rc.schemaData = rc.schemaRESTCONF.GetSchema("data")
+	if rc.schemaData == nil {
+		log.Fatalf("restconf: unable to load restconf/data schema")
+	}
+
+	// create a restconf root data node.
+	restroot, err := yangtree.NewWithValue(rc.schemaRESTCONF,
 		map[interface{}]interface{}{
 			"data":                 map[interface{}]interface{}{},
 			"operations":           nil,
-			"yang-library-version": ylibrev,
+			"yang-library-version": rc.yangLibVersion,
 		})
 	if err != nil {
 		log.Fatalf("restconf: %v", err)
 	}
+
+	// load startup data.
 	dataroot := restroot.Get("data")
 	if *startupFile != "" {
 		var file *os.File
@@ -134,23 +160,24 @@ func main() {
 			}
 		}
 	}
-	// if j, _ := yangtree.MarshalYAML(dataroot); len(j) > 0 {
-	// 	fmt.Println(string(j))
-	// }
 
-	app := fiber.New()
-
-	rctrl := &RestconfCtrl{
-		DataNode:      restroot,
-		curnode:       nil,
-		isGroupSearch: false,
+	if j, _ := yangtree.MarshalYAML(dataroot); len(j) > 0 {
+		fmt.Println(string(j))
 	}
-	if err := InstallRouteRoot(app, rctrl); err != nil {
+
+	// create the restconf service
+	app := fiber.New()
+	app.Use(logger.New(logger.Config{
+		Format: "[${time}] ${status} - ${latency} ${method} ${path}\n",
+	}))
+	app.Use(requestid.New()) // add requestid
+	rc.DataRoot = dataroot
+	// register restconf host-meta info.
+	if err := InstallRouteHostMeta(app, rc); err != nil {
 		log.Fatalf("restconf: %v", err)
 	}
 
-	// register restconf host-meta info.
-	if err := InstallRouteHostMeta(app, rctrl); err != nil {
+	if err := InstallRouteRoot(app, rc); err != nil {
 		log.Fatalf("restconf: %v", err)
 	}
 

@@ -2,13 +2,13 @@
 .EXPORT_ALL_VARIABLES:
 
 debug: ## build precompiled server for debug
-	go build -gcflags=all="-N -l" -o open-restconfd main.go response.go route.go error.go utilities.go
+	go build -gcflags=all="-N -l" -o open-restconf main.go response.go route.go error.go utilities.go
 
 build: ## build restconf server
-	go build -o open-restconfd main.go response.go route.go error.go utilities.go
+	go build -o open-restconf main.go response.go route.go error.go utilities.go
 
 run: build ## run restconf server
-	./open-restconfd -f modules/example/example-jukebox.yang -f modules/example/example-ops.yang \
+	./open-restconf -f modules/example/example-jukebox.yang -f modules/example/example-ops.yang \
 	--startup-format yaml --startup testdata/jukebox.yaml
 
 watch: ## hot-reloading
