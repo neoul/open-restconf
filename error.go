@@ -24,7 +24,7 @@ const (
 	ETypeTransport
 )
 
-func (et ErrorType) Error() string {
+func (et ErrorType) String() string {
 	switch et {
 	case ETypeApplication:
 		return "application"
@@ -66,7 +66,7 @@ const (
 	ETagMarlformedMessage
 )
 
-func (et ErrorTag) Error() string {
+func (et ErrorTag) String() string {
 	switch et {
 	case ETagInUse:
 		return "in-use"
@@ -192,10 +192,10 @@ func (et ErrorTag) Status() int {
 }
 
 func (rc *RESTCtrl) SetError(c *fiber.Ctx, respctrl *RespCtrl, status int, etyp ErrorType, etag ErrorTag, emsg error) error {
-	e, err := yangtree.NewWithValue(rc.schemaErrors.GetSchema("error"),
+	e, err := yangtree.NewWithValue(rc.schemaError,
 		map[interface{}]interface{}{
-			"error-tag":  etag.Error(),
-			"error-type": etyp.Error(),
+			"error-tag":  etag.String(),
+			"error-type": etyp.String(),
 			"error-path": c.Path(),
 		})
 	if err != nil {
@@ -216,7 +216,7 @@ func (rc *RESTCtrl) SetError(c *fiber.Ctx, respctrl *RespCtrl, status int, etyp 
 	if respctrl == nil {
 		requestid := c.GetRespHeader("X-Request-Id")
 		if respctrl = rc.RespCtrl[requestid]; respctrl == nil {
-			log.Fatalf("restconf: response node %s not found", requestid)
+			log.Fatalf("restconf: respctrl %s not found", requestid)
 		}
 	}
 

@@ -20,7 +20,7 @@ jukebox:
           song[name=Boy with Luv]:
             location: http://localhost:3000/music/BTS/Boy_with_Luv
             format: mp3
-            length: 174
+            length: 111
             name: Intro:Persona
       
   playlist[name=BTS-streaming]:

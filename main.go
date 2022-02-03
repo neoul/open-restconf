@@ -29,6 +29,7 @@ type RESTCtrl struct {
 	sync.RWMutex
 	DataRoot       yangtree.DataNode    // /restconf/data
 	RespCtrl       map[string]*RespCtrl // RequestID and its Response data
+	schemaError    *yangtree.SchemaNode
 	schemaErrors   *yangtree.SchemaNode
 	schemaRESTCONF *yangtree.SchemaNode
 	schemaData     *yangtree.SchemaNode
@@ -93,6 +94,10 @@ func main() {
 	rc.schemaErrors = yangerrorSchema.GetSchema("errors")
 	if rc.schemaErrors == nil {
 		log.Fatalf("restconf: unable to load yang-errors/errors schema")
+	}
+	rc.schemaError = rc.schemaErrors.GetSchema("error")
+	if rc.schemaError == nil {
+		log.Fatalf("restconf: unable to load yang-errors/errors/error schema")
 	}
 
 	// load restconf.top.

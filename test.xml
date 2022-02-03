@@ -1,0 +1,29 @@
+<artist xmlns="http://example.com/ns/example-jukebox">
+ <artist>
+  <album>
+   <name>MAP OF THE SOUL:7</name>
+   <song>
+    <format>mp3</format>
+    <length>174</length>
+    <location>http://localhost:3000/music/BTS/Boy_with_Luv</location>
+    <name>Boy with Luv</name>
+   </song>
+   <song>
+    <format>mp3</format>
+    <length>174</length>
+    <location>http://localhost:3000/music/BTS/Intro_Persona</location>
+    <name>Intro:Persona</name>
+   </song>
+  </album>
+  <album>
+   <name>My Universe</name>
+  </album>
+  <name>BTS</name>
+ </artist>
+ <artist>
+  <album>
+   <name>strawberry moon</name>
+  </album>
+  <name>아이유</name>
+ </artist>
+</artist>

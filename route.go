@@ -309,12 +309,12 @@ func InstallRouteRoot(app *fiber.App, rc *RESTCtrl) error {
 
 func InstallRouteHostMeta(app *fiber.App, rc *RESTCtrl) error {
 	// register restconf host-meta info.
+
 	app.All("/.well-known/host-meta", func(c *fiber.Ctx) error {
 		switch c.Method() {
 		case "GET":
-			log.Println(c.BaseURL(), c.Path())
 			// FIXME - add a link for the restconf access point
-			c.Links("http://localhost:300/restconf")
+			c.Links(fmt.Sprint(c.BaseURL() + "/restconf"))
 			hdr := &(c.Response().Header)
 			hdr.Add("Content-Type", "application/xrd+xml")
 			hostmeta :=

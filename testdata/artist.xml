@@ -1,11 +1,11 @@
 <artist xmlns="http://example.com/ns/example-jukebox">
     <album>
-        <name>MAPOFTHESOUL:7</name>
+        <name>MAP OF THE SOUL:7</name>
         <song>
             <format>mp3</format>
             <length>111</length>
             <location>http://localhost:3000/music/BTS/Boy_with_Luv</location>
-            <name>BoywithLuv</name>
+            <name>Boy with Luv</name>
         </song>
         <song>
             <format>mp3</format>
@@ -15,7 +15,13 @@
         </song>
     </album>
     <album>
-        <name>MyUniverse</name>
+        <name>My Universe</name>
     </album>
     <name>BTS</name>
+</artist>
+<artist xmlns="http://example.com/ns/example-jukebox">
+    <album>
+        <name>strawberry moon</name>
+    </album>
+    <name>아이유</name>
 </artist>

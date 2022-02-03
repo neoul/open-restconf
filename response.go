@@ -11,6 +11,10 @@ import (
 )
 
 func (rc *RESTCtrl) Response(c *fiber.Ctx, respctrl *RespCtrl) error {
+	// Response content priority
+	// 1. Header error
+	// 2. Content error
+	// 3. No error
 
 	var err error
 	var enode yangtree.DataNode
@@ -24,8 +28,9 @@ func (rc *RESTCtrl) Response(c *fiber.Ctx, respctrl *RespCtrl) error {
 		"application/xml", "application/json", "application/yaml",
 		"application/yang-data+xml", "application/yang-data+json", "application/yang-data+yaml")
 	switch {
-	case accepts == "*/*":
-		fallthrough
+	case accepts == "*/*": // if all types are allowed
+		c.Set("Content-Type", "application/yang-data+xml")
+		marshal = yangtree.MarshalXMLIndent
 	case strings.HasSuffix(accepts, "xml"):
 		c.Set("Content-Type", accepts)
 		marshal = yangtree.MarshalXMLIndent
@@ -56,7 +61,7 @@ func (rc *RESTCtrl) Response(c *fiber.Ctx, respctrl *RespCtrl) error {
 			} else {
 				node = respctrl.nodes[0]
 			}
-			b, err := marshal(node, "", " ")
+			b, err := marshal(node, "", " ", yangtree.RepresentItself{})
 			if err != nil {
 				rc.SetError(c, respctrl, fiber.StatusInternalServerError, ETypeRPC, ETagOperationFailed, err)
 				break
@@ -77,7 +82,7 @@ func (rc *RESTCtrl) Response(c *fiber.Ctx, respctrl *RespCtrl) error {
 			}
 		}
 
-		b, err := marshal(enode, "", " ")
+		b, err := marshal(enode, "", " ", yangtree.RepresentItself{})
 		if err != nil {
 			log.Fatalf("restconf: fault in error report: %v", err)
 		}
