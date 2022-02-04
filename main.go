@@ -126,19 +126,19 @@ func main() {
 		log.Fatalf("restconf: unable to load restconf/data schema")
 	}
 
-	// create a restconf root data node.
-	restroot, err := yangtree.NewWithValue(rc.schemaRESTCONF,
-		map[interface{}]interface{}{
-			"data":                 map[interface{}]interface{}{},
-			"operations":           nil,
-			"yang-library-version": rc.yangLibVersion,
-		})
+	// create the data node.
+	dataroot, err := yangtree.New(rc.schemaData)
 	if err != nil {
-		log.Fatalf("restconf: %v", err)
+		log.Fatalf("restconf: unable to create the restconf data root: %v", err)
+	}
+
+	// load yanglibrary
+	library := rootSchema.GetYangLibrary()
+	if _, err := dataroot.Insert(library, nil); err != nil {
+		log.Fatalf("restconf: unable to add the yanglibrary: %v", err)
 	}
 
 	// load startup data.
-	dataroot := restroot.Get("data")
 	if *startupFile != "" {
 		var file *os.File
 		file, err = os.Open(*startupFile)
@@ -166,9 +166,9 @@ func main() {
 		}
 	}
 
-	if j, _ := yangtree.MarshalYAML(dataroot); len(j) > 0 {
-		fmt.Println(string(j))
-	}
+	// if j, _ := yangtree.MarshalYAML(dataroot); len(j) > 0 {
+	// 	fmt.Println(string(j))
+	// }
 
 	// create the restconf service
 	app := fiber.New()

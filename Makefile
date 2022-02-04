@@ -9,7 +9,7 @@ build: ## build restconf server
 
 run: build ## run restconf server
 	./open-restconf -f modules/example/example-jukebox.yang -f modules/example/example-ops.yang \
-	--startup-format yaml --startup testdata/jukebox.yaml
+	--startup-format xml --startup testdata/jukebox.xml
 
 watch: ## hot-reloading
 	reflex -s -r '\.go$$' make run

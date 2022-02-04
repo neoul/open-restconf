@@ -1,0 +1,102 @@
+{
+  "data": {
+    "jukebox": {
+      "library": {
+        "album-count": 1,
+        "artist": {
+          "BTS": {
+            "album": {
+              "MAP OF THE SOUL:7": {
+                "name": "MAP OF THE SOUL:7",
+                "song": {
+                  "Boy with Luv": {
+                    "format": "mp3",
+                    "length": 111,
+                    "location": "http://localhost:3000/music/BTS/Boy_with_Luv",
+                    "name": "Boy with Luv"
+                  },
+                  "Intro:Persona": {
+                    "format": "mp3",
+                    "length": 174,
+                    "location": "http://localhost:3000/music/BTS/Intro_Persona",
+                    "name": "Intro:Persona"
+                  }
+                }
+              },
+              "My Universe": {
+                "name": "My Universe"
+              }
+            },
+            "name": "BTS"
+          },
+          "Foo Fighters": {
+            "album": {
+              "Wasting Light": {
+                "genre": "alternative",
+                "name": "Wasting Light",
+                "song": {
+                  "Rope": {
+                    "format": "MP3",
+                    "length": 259,
+                    "location": "/media/foo/a7/rope.mp3",
+                    "name": "Rope"
+                  },
+                  "Wasting Light": {
+                    "format": "MP3",
+                    "length": 286,
+                    "location": "/media/foo/a7/wasting-light.mp3",
+                    "name": "Wasting Light"
+                  }
+                },
+                "year": 2011
+              }
+            },
+            "name": "Foo Fighters"
+          },
+          "아이유": {
+            "album": {
+              "strawberry moon": {
+                "name": "strawberry moon"
+              }
+            },
+            "name": "아이유"
+          }
+        },
+        "artist-count": 1,
+        "song-count": 2
+      },
+      "player": {
+        "gap": 0.5
+      },
+      "playlist": {
+        "BTS-streaming": {
+          "name": "BTS-streaming",
+          "song": {
+            "1": {
+              "id": "/jukebox/library/artist[name=BTS]/album[name=MAP OF THE SOUL:7]/song[name=Intro:Persona]/name",
+              "index": 1
+            },
+            "2": {
+              "id": "/jukebox/library/artist[name=BTS]/album[name=MAP OF THE SOUL:7]/song[name=Boy with L uv]/name",
+              "index": 2
+            }
+          }
+        },
+        "Foo-One": {
+          "description": "example playlist 1",
+          "name": "Foo-One",
+          "song": {
+            "1": {
+              "id": "/example-jukebox:jukebox/library/artist[name='Foo Fighters']/album[name='Wasting Light']/song[name='Rope']",
+              "index": 1
+            },
+            "2": {
+              "id": "/example-jukebox:jukebox/library/artist[name='Foo Fighters']/album[name='Wasting Light']/song[name='Bridge Burning']",
+              "index": 2
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,21 +1,82 @@
-<artist xmlns="http://example.com/ns/example-jukebox">
-    <album>
-        <name>MAPOFTHESOUL:7</name>
-        <song>
+<data xmlns="urn:ietf:params:xml:ns:yang:ietf-restconf">
+  <jukebox xmlns="http://example.com/ns/example-jukebox">
+    <library>
+      <album-count>1</album-count>
+      <artist-count>1</artist-count>
+      <artist>
+        <album>
+          <name>MAP OF THE SOUL:7</name>
+          <song>
             <format>mp3</format>
             <length>111</length>
             <location>http://localhost:3000/music/BTS/Boy_with_Luv</location>
-            <name>BoywithLuv</name>
-        </song>
-        <song>
+            <name>Boy with Luv</name>
+          </song>
+          <song>
             <format>mp3</format>
             <length>174</length>
             <location>http://localhost:3000/music/BTS/Intro_Persona</location>
             <name>Intro:Persona</name>
-        </song>
-    </album>
-    <album>
-        <name>MyUniverse</name>
-    </album>
-    <name>BTS</name>
-</artist>
+          </song>
+        </album>
+        <album>
+          <name>My Universe</name>
+        </album>
+        <name>BTS</name>
+      </artist>
+      <artist>
+        <album>
+          <genre>jbox:alternative</genre>
+          <name>Wasting Light</name>
+          <song>
+            <format>MP3</format>
+            <length>259</length>
+            <location>/media/foo/a7/rope.mp3</location>
+            <name>Rope</name>
+          </song>
+          <song>
+            <format>MP3</format>
+            <length>286</length>
+            <location>/media/foo/a7/wasting-light.mp3</location>
+            <name>Wasting Light</name>
+          </song>
+          <year>2011</year>
+        </album>
+        <name>Foo Fighters</name>
+      </artist>
+      <artist>
+        <album>
+          <name>strawberry moon</name>
+        </album>
+        <name>아이유</name>
+      </artist>
+      <song-count>2</song-count>
+    </library>
+    <player>
+      <gap>0.5</gap>
+    </player>
+    <playlist>
+      <name>BTS-streaming</name>
+      <song>
+        <id>/jukebox/library/artist[name=BTS]/album[name=MAP OF THE SOUL:7]/song[name=Intro:Persona]/name</id>
+        <index>1</index>
+      </song>
+      <song>
+        <id>/jukebox/library/artist[name=BTS]/album[name=MAP OF THE SOUL:7]/song[name=Boy with L uv]/name</id>
+        <index>2</index>
+      </song>
+    </playlist>
+    <playlist>
+      <description>example playlist 1</description>
+      <name>Foo-One</name>
+      <song>
+        <id>/example-jukebox:jukebox/library/artist[name='Foo Fighters']/album[name='Wasting Light']/song[name='Rope']</id>
+        <index>1</index>
+      </song>
+      <song>
+        <id>/example-jukebox:jukebox/library/artist[name='Foo Fighters']/album[name='Wasting Light']/song[name='Bridge Burning']</id>
+        <index>2</index>
+      </song>
+    </playlist>
+  </jukebox>
+</data>

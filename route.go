@@ -10,29 +10,35 @@ import (
 	"github.com/neoul/yangtree"
 )
 
-// GenerateRoutePath() generates a fiber route path and an yang data path format from a schema node.
-func GenerateRoutePath(schema *yangtree.SchemaNode, prefixTagging bool) (routePath, searchPath []string) {
+// generateRoutePath() generates a fiber route path and an yang data path format from a schema node.
+func generateRoutePath(schema, schemaTop *yangtree.SchemaNode, prefixTagging bool) (routePath, searchPath []string) {
 	var routeElem strings.Builder
 	var searchElem strings.Builder
+	var pRoutePath, pSearchPath []string
+	if schema.Parent != nil && schema.Parent != schemaTop {
+		pRoutePath, pSearchPath =
+			generateRoutePath(schema.Parent, schemaTop, prefixTagging)
+	} else {
+		pRoutePath = append(pRoutePath, "")
+		pSearchPath = append(pSearchPath, "")
+	}
+	routeElem.WriteString("/")
+	searchElem.WriteString("/")
 	if prefixTagging && schema.Prefix != nil {
 		routeElem.WriteString(schema.Prefix.Name)
 		routeElem.WriteString("\\:")
-		routeElem.WriteString(schema.Name)
 
 		searchElem.WriteString(schema.Prefix.Name)
 		searchElem.WriteString(":")
-		searchElem.WriteString(schema.Name)
-	} else {
-		routeElem.WriteString(schema.Name)
-
-		searchElem.WriteString(schema.Name)
 	}
-	routePath = append(routePath, "/"+routeElem.String())
-	searchPath = append(searchPath, searchElem.String())
+	routeElem.WriteString(schema.Name)
+	searchElem.WriteString(schema.Name)
 
-	if len(schema.Keyname) == 0 {
-		return
-	} else {
+	var rpath, spath []string
+	rpath = append(rpath, routeElem.String())
+	spath = append(spath, searchElem.String())
+
+	if len(schema.Keyname) > 0 {
 		comma := false
 		routeElem.WriteString("=")
 		for i := range schema.Keyname {
@@ -42,21 +48,30 @@ func GenerateRoutePath(schema *yangtree.SchemaNode, prefixTagging bool) (routePa
 			comma = true
 			routeElem.WriteString(":")
 			routeElem.WriteString(schema.Name)
-			routeElem.WriteString("\\:")
+			routeElem.WriteString("_")
 			routeElem.WriteString(schema.Keyname[i])
 
 			searchElem.WriteString("[")
 			searchElem.WriteString(schema.Keyname[i])
 			searchElem.WriteString("=%s]")
 		}
+		rpath = append(rpath, routeElem.String())
+		spath = append(spath, searchElem.String())
 	}
-	routePath = append(routePath, "/"+routeElem.String())
-	searchPath = append(searchPath, searchElem.String())
+	routeElem.Reset()
+	searchElem.Reset()
+
+	for i := range pRoutePath {
+		for j := range rpath {
+			routePath = append(routePath, pRoutePath[i]+rpath[j])
+			searchPath = append(searchPath, pSearchPath[i]+spath[j])
+		}
+	}
 	return
 }
 
-func InstallRouteRPC(router fiber.Router, schema *yangtree.SchemaNode, rc *RESTCtrl) error {
-	routePath, _ := GenerateRoutePath(schema, false)
+func installRPCRoute(router fiber.Router, schema *yangtree.SchemaNode, rc *RESTCtrl) error {
+	routePath, _ := generateRoutePath(schema, rc.schemaData, false)
 	for i := range routePath {
 		router.All(routePath[i], func(c *fiber.Ctx) error {
 			respctrl := rc.getRespCtrl(c)
@@ -96,77 +111,14 @@ func InstallRouteRPC(router fiber.Router, schema *yangtree.SchemaNode, rc *RESTC
 	return nil
 }
 
-func InstallDirectoryRoute(router fiber.Router, schema *yangtree.SchemaNode, rc *RESTCtrl) error {
-	routePath, searchPath := GenerateRoutePath(schema, false)
+func installDataRoute(router fiber.Router, schema *yangtree.SchemaNode, rc *RESTCtrl) error {
+	routePath, searchPath := generateRoutePath(schema, rc.schemaData, false)
 	for i := range routePath {
-		dirgroup := router.Group(routePath[i], func(c *fiber.Ctx) error {
-			respctrl := rc.getRespCtrl(c)
-			var p string
-			pname := c.Route().Params
-			if len(pname) > 0 {
-				pdata := make([]interface{}, len(pname))
-				for j := range pname {
-					pdata[j] = c.Params(pname[j])
-				}
-				p = fmt.Sprintf(searchPath[i], pdata...)
-				if schema.IsList() {
-					respctrl.groupSearch = false
-				}
-			} else {
-				p = searchPath[0]
-				if schema.IsList() {
-					respctrl.groupSearch = true
-				}
-			}
-			var found []yangtree.DataNode
-			for j := range respctrl.nodes {
-				if schema.Name == respctrl.nodes[j].Name() {
-					// select matched nodes with the params.
-					if p == respctrl.nodes[j].ID() {
-						found = append(found, respctrl.nodes[j])
-					}
-				} else {
-					n, err := yangtree.Find(respctrl.nodes[j], p)
-					if err != nil {
-						return rc.SetError(c, respctrl, fiber.StatusInternalServerError,
-							ETypeApplication, ETagOperationFailed, err)
-					}
-					found = append(found, n...)
-				}
-			}
-			if len(found) == 0 {
-				return rc.SetError(c, respctrl, fiber.StatusNotFound, ETypeApplication, ETagDataMissing, nil)
-			}
-			respctrl.nodes = found
-			log.Println(" => ", c.Path(), p, c.Route().Params, "RESULT", respctrl.nodes)
-			return c.Next()
-		})
+		log.Println("install route", routePath[i])
 		router.All(routePath[i], func(c *fiber.Ctx) error {
 			switch c.Method() {
 			case "GET":
-				// return without error because the target nodes are already found.
-				return nil
-			default:
-				return rc.SetError(c, nil, fiber.StatusMethodNotAllowed, ETypeProtocol,
-					ETagOperationNotSupported, fmt.Errorf("HTTP %s not implemented yet", c.Method()))
-			}
-		})
-		for j := range schema.Children {
-			if err := InstallRoute(dirgroup, schema.Children[j], rc); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func InstallNoneDirectoryRoute(router fiber.Router, schema *yangtree.SchemaNode, rc *RESTCtrl) error {
-	routePath, searchPath := GenerateRoutePath(schema, false)
-	for i := range routePath {
-		router.All(routePath[i], func(c *fiber.Ctx) error {
-			respctrl := rc.getRespCtrl(c)
-			switch c.Method() {
-			case "GET":
+				respctrl := rc.getRespCtrl(c)
 				var p string
 				pname := c.Route().Params
 				if len(pname) > 0 {
@@ -175,48 +127,62 @@ func InstallNoneDirectoryRoute(router fiber.Router, schema *yangtree.SchemaNode,
 						pdata[j] = c.Params(pname[j])
 					}
 					p = fmt.Sprintf(searchPath[i], pdata...)
+					if schema.IsList() {
+						respctrl.groupSearch = false
+					}
 				} else {
-					p = searchPath[i]
-					if schema.IsListable() {
+					p = searchPath[0]
+					if schema.IsList() {
 						respctrl.groupSearch = true
 					}
 				}
-				var node []yangtree.DataNode
+				var found []yangtree.DataNode
 				for j := range respctrl.nodes {
-					n, err := yangtree.Find(respctrl.nodes[j], p)
-					if err != nil {
-						return rc.SetError(c, nil, fiber.StatusInternalServerError,
-							ETypeApplication, ETagOperationFailed, err)
+					if schema.Name == respctrl.nodes[j].Name() {
+						// select matched nodes with the params.
+						if p == respctrl.nodes[j].ID() {
+							found = append(found, respctrl.nodes[j])
+						}
+					} else {
+						n, err := yangtree.Find(respctrl.nodes[j], p)
+						if err != nil {
+							return rc.SetError(c, respctrl, fiber.StatusInternalServerError,
+								ETypeApplication, ETagOperationFailed, err)
+						}
+						found = append(found, n...)
 					}
-					node = append(node, n...)
 				}
-				if len(node) == 0 {
-					return rc.SetError(c, nil, fiber.StatusNotFound, ETypeApplication, ETagDataMissing, nil)
+				if len(found) == 0 {
+					return rc.SetError(c, respctrl, fiber.StatusNotFound, ETypeApplication, ETagDataMissing, nil)
 				}
-				respctrl.nodes = node
+				respctrl.nodes = found
+				log.Println("=>", c.Path(), p, c.Route().Params, "RESULT", respctrl.nodes)
 				return nil
 			default:
 				return rc.SetError(c, nil, fiber.StatusMethodNotAllowed, ETypeProtocol,
 					ETagOperationNotSupported, fmt.Errorf("HTTP %s not implemented yet", c.Method()))
 			}
 		})
+
+	}
+	for j := range schema.Children {
+		if err := installRoute(router, schema.Children[j], rc); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func InstallRoute(router fiber.Router, schema *yangtree.SchemaNode, rc *RESTCtrl) error {
-	log.Println("InstallRoute", schema.Path())
+func installRoute(router fiber.Router, schema *yangtree.SchemaNode, rc *RESTCtrl) error {
 	switch {
 	case schema.IsRPC():
-		return InstallRouteRPC(router, schema, rc)
-	case schema.IsDir():
-		return InstallDirectoryRoute(router, schema, rc)
+		return installRPCRoute(router, schema, rc)
 	default:
-		return InstallNoneDirectoryRoute(router, schema, rc)
+		return installDataRoute(router, schema, rc)
 	}
 }
 
-func InstallRouteData(app *fiber.App, rc *RESTCtrl) error {
+func InstallRoute(app *fiber.App, rc *RESTCtrl) error {
 	top := app.Group("/restconf/data", func(c *fiber.Ctx) error {
 		log.Println(c.Method(), c.Path())
 		switch c.Method() {
@@ -250,11 +216,17 @@ func InstallRouteData(app *fiber.App, rc *RESTCtrl) error {
 		delete(rc.RespCtrl, requestid)
 		return rc.Response(c, respctrl)
 	})
-	app.Get("/restconf/data", func(c *fiber.Ctx) error {
-		return nil
+	app.All("/restconf/data", func(c *fiber.Ctx) error {
+		switch c.Method() {
+		case "GET":
+			return nil
+		default:
+			return rc.SetError(c, nil, fiber.StatusNotImplemented, ETypeProtocol,
+				ETagOperationNotSupported, fmt.Errorf("use HTTP GET instead of %s", c.Method()))
+		}
 	})
 	for i := range rc.schemaData.Children {
-		if err := InstallRoute(top, rc.schemaData.Children[i], rc); err != nil {
+		if err := installRoute(top, rc.schemaData.Children[i], rc); err != nil {
 			log.Fatalf("restconf: %v", err)
 		}
 	}
@@ -301,19 +273,17 @@ func InstallRouteRoot(app *fiber.App, rc *RESTCtrl) error {
 		}
 	})
 
-	if err := InstallRouteData(app, rc); err != nil {
+	if err := InstallRoute(app, rc); err != nil {
 		log.Fatalf("restconf: %v", err)
 	}
 	return nil
 }
 
+// register restconf host-meta info.
 func InstallRouteHostMeta(app *fiber.App, rc *RESTCtrl) error {
-	// register restconf host-meta info.
-
 	app.All("/.well-known/host-meta", func(c *fiber.Ctx) error {
 		switch c.Method() {
 		case "GET":
-			// FIXME - add a link for the restconf access point
 			c.Links(fmt.Sprint(c.BaseURL() + "/restconf"))
 			hdr := &(c.Response().Header)
 			hdr.Add("Content-Type", "application/xrd+xml")
@@ -329,4 +299,32 @@ func InstallRouteHostMeta(app *fiber.App, rc *RESTCtrl) error {
 		}
 	})
 	return nil
+}
+
+func InstallRouteDebug(app *fiber.App) {
+	// // Parameters
+	// app.Get("/user=:name/books=:title", func(c *fiber.Ctx) error {
+	// 	fmt.Fprintf(c, "%s\n", c.Params("name"))
+	// 	fmt.Fprintf(c, "%s\n", c.Params("title"))
+	// 	return nil
+	// })
+	// // Plus - greedy - not optional
+	// app.Get("/user/+", func(c *fiber.Ctx) error {
+	// 	return c.SendString(c.Params("+"))
+	// })
+
+	// // Optional parameter
+	// app.Get("/user/:name?", func(c *fiber.Ctx) error {
+	// 	return c.SendString(c.Params("name"))
+	// })
+
+	// // Wildcard - greedy - optional
+	// app.Get("/user/*", func(c *fiber.Ctx) error {
+	// 	return c.SendString(c.Params("*"))
+	// })
+
+	// // This route path will match requests to "/v1/some/resource/name:customVerb", since the parameter character is escaped
+	// app.Get("/v1/some/resource/name\\:customVerb", func(c *fiber.Ctx) error {
+	// 	return c.SendString("Hello, Community")
+	// })
 }

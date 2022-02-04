@@ -214,11 +214,12 @@ curl --header "Accept: application/xrd+xml" localhost:3000/.well-known/host-meta
 ```
 
 
+### wget
 
 ```bash
-wget -q -O - http://localhost:10000/articles
-wget -q -O - http://localhost:10000/articles/1
-wget -q -O - http://localhost:10000/articles/2
+
+wget -q -O - http://127.0.0.1:8080/.well-known/host-meta -d
+wget -d -q -O - http://127.0.0.1:8080/restconf/data/jukebox/playlist=Foo-One/song=2
 wget --post-file test.json -q -O - http://localhost:10000/articles
 ```
 

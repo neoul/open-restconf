@@ -50,7 +50,7 @@ func (rc *RESTCtrl) Response(c *fiber.Ctx, respctrl *RespCtrl) error {
 		switch c.Method() {
 		case "GET":
 			var node yangtree.DataNode
-			if respctrl.groupSearch {
+			if respctrl.groupSearch || len(respctrl.nodes) > 1 {
 				node, err = yangtree.ConvertToGroup(respctrl.nodes[0].Schema(), respctrl.nodes)
 				if err != nil {
 					// StatusPreconditionFailed - for GET or HEAD when If-Unmodified-Since or If-None-Match headers is not fulfilled.
