@@ -1,0 +1,783 @@
+########
+
+      GET /restconf/data/example-jukebox:jukebox/library\
+          ?content=nonconfig HTTP/1.1
+      Host: example.com
+      Accept: application/yang-data+xml
+
+   The server might respond as follows:
+
+      HTTP/1.1 200 OK
+      Date: Thu, 26 Jan 2017 20:56:30 GMT
+      Server: example-server
+      Cache-Control: no-cache
+      Content-Type: application/yang-data+xml
+
+      <library xmlns="https://example.com/ns/example-jukebox">
+        <artist-count>42</artist-count>
+        <album-count>59</album-count>
+        <song-count>374</song-count>
+      </library>
+
+########
+
+      GET /restconf/yang-library-version HTTP/1.1
+      Host: example.com
+      Accept: application/yang-data+xml
+
+   The server might respond as follows:
+
+      HTTP/1.1 200 OK
+      Date: Thu, 26 Jan 2017 20:56:30 GMT
+      Server: example-server
+      Cache-Control: no-cache
+      Content-Type: application/yang-data+xml
+
+      <yang-library-version
+        xmlns="urn:ietf:params:xml:ns:yang:ietf-restconf">\
+        2016-06-21\
+      </yang-library-version>
+
+########
+
+      GET /restconf/data/ietf-yang-library:modules-state/\
+          module=example-jukebox,2016-08-15/schema HTTP/1.1
+      Host: example.com
+      Accept: application/yang-data+json
+
+   The server might respond as follows:
+
+      HTTP/1.1 200 OK
+      Date: Thu, 26 Jan 2017 20:56:30 GMT
+      Server: example-server
+      Content-Type: application/yang-data+json
+
+      {
+        "ietf-yang-library:schema" :
+         "https://example.com/mymodules/example-jukebox/2016-08-15"
+      }
+
+########
+
+      GET /restconf/data/example-jukebox:jukebox/\
+         library/artist=Foo%20Fighters/album=Wasting%20Light HTTP/1.1
+      Host: example.com
+      Accept: application/yang-data+xml
+
+   The server might respond as follows:
+
+      HTTP/1.1 200 OK
+      Date: Thu, 26 Jan 2017 20:56:30 GMT
+      Server: example-server
+      Content-Type: application/yang-data+xml
+      Cache-Control: no-cache
+      ETag: "a74eefc993a2b"
+      Last-Modified: Thu, 26 Jan 2017 14:02:14 GMT
+
+      <album xmlns="http://example.com/ns/example-jukebox"
+             xmlns:jbox="http://example.com/ns/example-jukebox">
+        <name>Wasting Light</name>
+        <genre>jbox:alternative</genre>
+        <year>2011</year>
+      </album>
+
+########
+
+      GET /restconf/data/interfaces/interface=eth1
+          ?with-defaults=report-all-tagged HTTP/1.1
+      Host: example.com
+      Accept: application/yang-data+xml
+
+   The server might respond as follows:
+
+      HTTP/1.1 200 OK
+      Date: Thu, 26 Jan 2017 20:56:30 GMT
+      Server: example-server
+      Content-Type: application/yang-data+xml
+
+      <interface
+        xmlns="urn:example.com:params:xml:ns:yang:example-interface">
+        <name>eth1</name>
+        <mtu xmlns:wd="urn:ietf:params:xml:ns:netconf:default:1.0"
+          wd:default="true">1500</mtu>
+        <status>up</status>
+      </interface>
+
+
+########
+
+      GET /restconf/data/interfaces/interface=eth1\
+          ?with-defaults=report-all-tagged HTTP/1.1
+      Host: example.com
+      Accept: application/yang-data+json
+
+   The server might respond as follows:
+
+      HTTP/1.1 200 OK
+      Date: Thu, 26 Jan 2017 20:56:30 GMT
+      Server: example-server
+      Content-Type: application/yang-data+json
+
+      {
+        "example:interface" : [
+          {
+            "name" : "eth1",
+            "mtu" : 1500,
+            "@mtu" : {
+               "ietf-netconf-with-defaults:default" : true
+            },
+            "status" : "up"
+          }
+        ]
+      }
+
+########
+
+      GET /restconf/data/ietf-restconf-monitoring:restconf-state/\
+          streams HTTP/1.1
+      Host: example.com
+      Accept: application/yang-data+xml
+
+   The server might send the following response:
+
+      HTTP/1.1 200 OK
+      Content-Type: application/yang-data+xml
+
+      <streams
+        xmlns="urn:ietf:params:xml:ns:yang:ietf-restconf-monitoring">
+         <stream>
+            <name>NETCONF</name>
+            <description>default NETCONF event stream</description>
+            <replay-support>true</replay-support>
+            <replay-log-creation-time>\
+               2007-07-08T00:00:00Z\
+            </replay-log-creation-time>
+            <access>
+               <encoding>xml</encoding>
+               <location>https://example.com/streams/NETCONF\
+               </location>
+            </access>
+            <access>
+               <encoding>json</encoding>
+               <location>https://example.com/streams/NETCONF-JSON\
+               </location>
+            </access>
+         </stream>
+         <stream>
+            <name>SNMP</name>
+            <description>SNMP notifications</description>
+            <replay-support>false</replay-support>
+            <access>
+               <encoding>xml</encoding>
+               <location>https://example.com/streams/SNMP</location>
+            </access>
+         </stream>
+         <stream>
+            <name>syslog-critical</name>
+            <description>Critical and higher severity</description>
+            <replay-support>true</replay-support>
+            <replay-log-creation-time>
+               2007-07-01T00:00:00Z
+            </replay-log-creation-time>
+            <access>
+               <encoding>xml</encoding>
+               <location>\
+                 https://example.com/streams/syslog-critical\
+               </location>
+            </access>
+         </stream>
+      </streams>
+
+########
+
+      GET /restconf/data/ietf-restconf-monitoring:restconf-state/\
+          streams/stream=NETCONF/access=xml/location HTTP/1.1
+      Host: example.com
+      Accept: application/yang-data+xml
+
+   The server might send the following response:
+
+      HTTP/1.1 200 OK
+      Content-Type: application/yang-data+xml
+
+      <location
+        xmlns="urn:ietf:params:xml:ns:yang:ietf-restconf-monitoring">\
+        https://example.com/streams/NETCONF\
+      </location>
+
+########
+
+      GET /restconf HTTP/1.1
+      Host: example.com
+      Accept: application/yang-data+json
+
+   The server might respond as follows:
+
+      HTTP/1.1 200 OK
+      Date: Thu, 26 Jan 2017 20:56:30 GMT
+      Server: example-server
+      Content-Type: application/yang-data+json
+
+      {
+        "ietf-restconf:restconf" : {
+          "data" : {},
+          "operations" : {},
+          "yang-library-version" : "2016-06-21"
+        }
+      }
+
+########
+
+
+      GET /restconf HTTP/1.1
+      Host: example.com
+      Accept: application/yang-data+xml
+
+   The server will return the same conceptual data either way, which
+   might be as follows:
+
+      HTTP/1.1 200 OK
+      Date: Thu, 26 Jan 2017 20:56:30 GMT
+      Server: example-server
+      Cache-Control: no-cache
+      Content-Type: application/yang-data+xml
+
+      <restconf xmlns="urn:ietf:params:xml:ns:yang:ietf-restconf">
+        <data/>
+        <operations/>
+        <yang-library-version>2016-06-21</yang-library-version>
+      </restconf>
+
+
+
+########
+
+      GET /restconf/data/ietf-yang-library:modules-state HTTP/1.1
+      Host: example.com
+      Accept: application/yang-data+json
+
+   The server might respond as follows:
+
+      HTTP/1.1 200 OK
+      Date: Thu, 26 Jan 2017 20:56:30 GMT
+      Server: example-server
+      Cache-Control: no-cache
+      Last-Modified: Thu, 26 Jan 2017 14:00:14 GMT
+      Content-Type: application/yang-data+json
+
+      {
+        "ietf-yang-library:modules-state" : {
+          "module-set-id" : "5479120c17a619545ea6aff7aa19838b036ebbd7",
+          "module" : [
+            {
+              "name" : "foo",
+              "revision" : "2012-01-02",
+              "schema" : "https://example.com/modules/foo/2012-01-02",
+              "namespace" : "http://example.com/ns/foo",
+              "feature" : [ "feature1", "feature2" ],
+              "deviation" : [
+                {
+                  "name" : "foo-dev",
+                  "revision" : "2012-02-16"
+                }
+              ],
+              "conformance-type" : "implement"
+            },
+            {
+              "name" : "ietf-yang-library",
+              "revision" : "2016-06-21",
+              "schema" : "https://example.com/modules/\
+                ietf-yang-library/2016-06-21",
+              "namespace" :
+                "urn:ietf:params:xml:ns:yang:ietf-yang-library",
+              "conformance-type" : "implement"
+            },
+            {
+              "name" : "foo-types",
+              "revision" : "2012-01-05",
+              "schema" :
+                "https://example.com/modules/foo-types/2012-01-05",
+              "namespace" : "http://example.com/ns/foo-types",
+              "conformance-type" : "import"
+            },
+            {
+              "name" : "bar",
+              "revision" : "2012-11-05",
+              "schema" : "https://example.com/modules/bar/2012-11-05",
+              "namespace" : "http://example.com/ns/bar",
+              "feature" : [ "bar-ext" ],
+              "conformance-type" : "implement",
+              "submodule" : [
+                {
+                  "name" : "bar-submod1",
+                  "revision" : "2012-11-05",
+                  "schema" :
+                   "https://example.com/modules/bar-submod1/2012-11-05"
+                },
+                {
+                  "name" : "bar-submod2",
+                  "revision" : "2012-11-05",
+                  "schema" :
+                   "https://example.com/modules/bar-submod2/2012-11-05"
+                }
+              ]
+            }
+          ]
+        }
+      }
+
+########
+
+      GET /restconf/data/ietf-restconf-monitoring:restconf-state/\
+          capabilities HTTP/1.1
+      Host: example.com
+      Accept: application/yang-data+xml
+
+   The server might respond as follows:
+
+      HTTP/1.1 200 OK
+      Date: Thu, 26 Jan 2017 20:56:30 GMT
+      Server: example-server
+      Cache-Control: no-cache
+      Last-Modified: Thu, 26 Jan 2017 16:00:14 GMT
+      Content-Type: application/yang-data+xml
+
+      <capabilities
+          xmlns="urn:ietf:params:xml:ns:yang:ietf-restconf-monitoring">
+       <capability>\
+        urn:ietf:params:restconf:capability:defaults:1.0?\
+           basic-mode=explicit\
+       </capability>
+       <capability>\
+        urn:ietf:params:restconf:capability:with-defaults:1.0\
+       </capability>
+       <capability>\
+        urn:ietf:params:restconf:capability:depth:1.0\
+       </capability>
+       <capability>\
+        urn:ietf:params:restconf:capability:fields:1.0\
+       </capability>
+       <capability>\
+        urn:ietf:params:restconf:capability:filter:1.0\
+       </capability>
+       <capability>\
+        urn:ietf:params:restconf:capability:start-time:1.0\
+       </capability>
+       <capability>\
+        urn:ietf:params:restconf:capability:stop-time:1.0\
+       </capability>
+       <capability>\
+        http://example.com/capabilities/myparam\
+       </capability>
+      </capabilities>
+
+########
+
+      GET /restconf/data/example-events:events?\
+          content=all HTTP/1.1
+      Host: example.com
+      Accept: application/yang-data+json
+
+   The server might respond as follows:
+
+      HTTP/1.1 200 OK
+      Date: Thu, 26 Jan 2017 20:56:30 GMT
+      Server: example-server
+      Cache-Control: no-cache
+      Content-Type: application/yang-data+json
+
+      {
+        "example-events:events" : {
+          "event" : [
+            {
+              "name" : "interface-up",
+              "description" : "Interface up notification count",
+              "event-count" : 42
+            },
+            {
+              "name" : "interface-down",
+              "description" : "Interface down notification count",
+              "event-count" : 4
+            }
+          ]
+        }
+      }
+
+########
+
+      GET /restconf/data/example-events:events?\
+          content=config HTTP/1.1
+      Host: example.com
+      Accept: application/yang-data+json
+
+   The server might respond as follows:
+
+      HTTP/1.1 200 OK
+      Date: Thu, 26 Jan 2017 20:56:30 GMT
+      Server: example-server
+      Last-Modified: Thu, 26 Jan 2017 16:45:20 GMT
+      ETag: "eeeada438af"
+      Cache-Control: no-cache
+      Content-Type: application/yang-data+json
+
+      {
+        "example-events:events" : {
+          "event" : [
+            {
+              "name" : "interface-up",
+              "description" : "Interface up notification count"
+            },
+            {
+              "name" : "interface-down",
+              "description" : "Interface down notification count"
+            }
+          ]
+        }
+      }
+
+
+########
+
+      GET /restconf/data/example-events:events?\
+         content=nonconfig HTTP/1.1
+      Host: example.com
+      Accept: application/yang-data+json
+
+   The server might respond as follows:
+
+      HTTP/1.1 200 OK
+      Date: Thu, 26 Jan 2017 20:56:30 GMT
+      Server: example-server
+      Cache-Control: no-cache
+      Content-Type: application/yang-data+json
+
+      {
+        "example-events:events" : {
+          "event" : [
+            {
+              "name" : "interface-up",
+              "event-count" : 42
+            },
+            {
+              "name" : "interface-down",
+              "event-count" : 4
+            }
+          ]
+        }
+      }
+
+########
+
+      GET /restconf/data/example-jukebox:jukebox?\
+          depth=unbounded HTTP/1.1
+      Host: example.com
+      Accept: application/yang-data+json
+
+   The server might respond as follows:
+
+      HTTP/1.1 200 OK
+      Date: Thu, 26 Jan 2017 20:56:30 GMT
+      Server: example-server
+      Cache-Control: no-cache
+      Content-Type: application/yang-data+json
+
+      {
+        "example-jukebox:jukebox" : {
+          "library" : {
+            "artist" : [
+              {
+                "name" : "Foo Fighters",
+                "album" : [
+                  {
+                    "name" : "Wasting Light",
+                    "genre" : "example-jukebox:alternative",
+                    "year" : 2011,
+                    "song" : [
+                      {
+                        "name" : "Wasting Light",
+                        "location" :
+                          "/media/foo/a7/wasting-light.mp3",
+                        "format" : "MP3",
+                        "length" : 286
+                      },
+                      {
+                        "name" : "Rope",
+                        "location" : "/media/foo/a7/rope.mp3",
+                        "format" : "MP3",
+                        "length" : 259
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "playlist" : [
+            {
+              "name" : "Foo-One",
+              "description" : "example playlist 1",
+              "song" : [
+                {
+                  "index" : 1,
+                  "id" : "/example-jukebox:jukebox/library\
+                     /artist[name='Foo Fighters']\
+                     /album[name='Wasting Light']\
+                     /song[name='Rope']"
+                },
+                {
+                  "index" : 2,
+                  "id" : "/example-jukebox:jukebox/library\
+                     /artist[name='Foo Fighters']\
+                     /album[name='Wasting Light']\
+                     /song[name='Bridge Burning']"
+                }
+              ]
+            }
+          ],
+          "player" : {
+            "gap" : 0.5
+          }
+        }
+      }
+
+
+
+
+########
+
+      GET /restconf/data/example-jukebox:jukebox?depth=1 HTTP/1.1
+      Host: example.com
+      Accept: application/yang-data+json
+
+   The server might respond as follows:
+
+      HTTP/1.1 200 OK
+      Date: Thu, 26 Jan 2017 20:56:30 GMT
+      Server: example-server
+      Cache-Control: no-cache
+      Content-Type: application/yang-data+json
+
+      {
+        "example-jukebox:jukebox" : {}
+      }
+
+
+########
+
+      GET /restconf/data/example-jukebox:jukebox?depth=3 HTTP/1.1
+      Host: example.com
+      Accept: application/yang-data+json
+
+   The server might respond as follows:
+
+      HTTP/1.1 200 OK
+      Date: Thu, 26 Jan 2017 20:56:30 GMT
+      Server: example-server
+      Cache-Control: no-cache
+      Content-Type: application/yang-data+json
+
+      {
+        "example-jukebox:jukebox" : {
+          "library" : {
+            "artist" : {}
+          },
+          "playlist" : [
+            {
+              "name" : "Foo-One",
+              "description" : "example playlist 1",
+              "song" : {}
+            }
+          ],
+          "player" : {
+            "gap" : 0.5
+          }
+        }
+      }
+
+########
+
+      GET /restconf/data?fields=ietf-yang-library:modules-state/\
+          module(name;revision) HTTP/1.1
+      Host: example.com
+      Accept: application/yang-data+json
+
+   The server might respond as follows:
+
+      HTTP/1.1 200 OK
+      Date: Thu, 26 Jan 2017 20:56:30 GMT
+      Server: example-server
+      Content-Type: application/yang-data+json
+
+      {
+        "ietf-restconf:data" : {
+          "ietf-yang-library:modules-state" : {
+            "module" : [
+              {
+                "name" : "example-jukebox",
+                "revision" : "2016-08-15"
+              },
+              {
+                "name" : "ietf-inet-types",
+                "revision" : "2013-07-15"
+              },
+              {
+                "name" : "ietf-restconf-monitoring",
+                "revision" : "2017-01-26"
+              },
+              {
+                "name" : "ietf-yang-library",
+                "revision" : "2016-06-21"
+              },
+              {
+                "name" : "ietf-yang-types",
+                "revision" : "2013-07-15"
+              }
+            ]
+          }
+        }
+      }
+
+########
+
+      GET /restconf/data/example:interfaces/interface=eth1 HTTP/1.1
+      Host: example.com
+      Accept: application/yang-data+json
+
+   The server might respond as follows:
+
+      HTTP/1.1 200 OK
+      Date: Thu, 26 Jan 2017 20:56:30 GMT
+      Server: example-server
+      Content-Type: application/yang-data+json
+
+      {
+        "example:interface" : [
+          {
+            "name" : "eth1",
+            "status" : "up"
+          }
+        ]
+      }
+
+########
+
+   With query parameter:
+
+      GET /restconf/data/example:interfaces/interface=eth1\
+          ?with-defaults=report-all HTTP/1.1
+      Host: example.com
+      Accept: application/yang-data+json
+
+   The server might respond as follows:
+
+      HTTP/1.1 200 OK
+      Date: Thu, 26 Jan 2017 20:56:30 GMT
+      Server: example-server
+      Content-Type: application/yang-data+json
+
+      {
+        "example:interface" : [
+          {
+            "name" : "eth1",
+            "mtu" : 1500,
+            "status" : "up"
+          }
+        ]
+      }
+
+########
+
+      GET https://example.com/mymodules/example-jukebox/\
+         2016-08-15 HTTP/1.1
+      Host: example.com
+      Accept: application/yang
+
+   The server might respond as follows:
+
+      HTTP/1.1 200 OK
+      Date: Thu, 26 Jan 2017 20:56:30 GMT
+      Server: example-server
+      Content-Type: application/yang
+
+         // entire YANG module contents deleted for this example...
+
+########
+   Example:
+
+   An "album" child resource defined in the "example-jukebox" YANG
+   module is replaced, or it is created if it does not already exist.
+
+   To replace the "album" resource contents, the client might send the
+   following:
+
+      PUT /restconf/data/example-jukebox:jukebox/\
+          library/artist=Foo%20Fighters/album=Wasting%20Light HTTP/1.1
+      Host: example.com
+      Content-Type: application/yang-data+json
+
+      {
+        "example-jukebox:album" : [
+          {
+            "name" : "Wasting Light",
+            "genre" : "example-jukebox:alternative",
+            "year" : 2011
+          }
+        ]
+      }
+
+   If the resource is updated, the server might respond as follows:
+
+      HTTP/1.1 204 No Content
+      Date: Thu, 26 Jan 2017 20:56:30 GMT
+      Server: example-server
+      Last-Modified: Thu, 26 Jan 2017 20:56:30 GMT
+      ETag: "b27480aeda4c"
+
+########
+
+   The same request is shown here using XML encoding:
+
+      PUT /restconf/data/example-jukebox:jukebox/\
+          library/artist=Foo%20Fighters/album=Wasting%20Light HTTP/1.1
+      Host: example.com
+      Content-Type: application/yang-data+xml
+
+      <album xmlns="http://example.com/ns/example-jukebox"
+             xmlns:jbox="http://example.com/ns/example-jukebox">
+        <name>Wasting Light</name>
+        <genre>jbox:alternative</genre>
+        <year>2011</year>
+      </album>
+
+########
+
+B.2.4.  Replace a Datastore Resource
+
+   In this example, the entire configuration datastore contents are
+   being replaced.  Any child nodes not present in the <data> element
+   but present in the server will be deleted.
+
+      PUT /restconf/data HTTP/1.1
+      Host: example.com
+      Content-Type: application/yang-data+xml
+
+      <data xmlns="urn:ietf:params:xml:ns:yang:ietf-restconf">
+        <jukebox xmlns="http://example.com/ns/example-jukebox">
+          <library>
+            <artist>
+              <name>Foo Fighters</name>
+              <album>
+                <name>One by One</name>
+                <year>2012</year>
+              </album>
+            </artist>
+            <artist>
+              <name>Nick Cave and the Bad Seeds</name>
+              <album>
+                <name>Tender Prey</name>
+                <year>1988</year>
+              </album>
+            </artist>
+          </library>
+        </jukebox>
+      </data>

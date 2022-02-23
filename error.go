@@ -191,7 +191,7 @@ func (et ErrorTag) Status() int {
 	}
 }
 
-func (rc *RESTCtrl) SetError(c *fiber.Ctx, respctrl *RespCtrl, status int, etyp ErrorType, etag ErrorTag, emsg error) error {
+func (rc *RESTCtrl) SetError(c *fiber.Ctx, rdata *respdata, status int, etyp ErrorType, etag ErrorTag, emsg error) error {
 	e, err := yangtree.NewWithValue(rc.schemaError,
 		map[interface{}]interface{}{
 			"error-tag":  etag.String(),
@@ -213,16 +213,9 @@ func (rc *RESTCtrl) SetError(c *fiber.Ctx, respctrl *RespCtrl, status int, etyp 
 		}
 	}
 
-	if respctrl == nil {
-		requestid := c.GetRespHeader("X-Request-Id")
-		if respctrl = rc.RespCtrl[requestid]; respctrl == nil {
-			log.Fatalf("restconf: respctrl %s not found", requestid)
-		}
-	}
+	// c.GetRespHeader("X-Request-Id")
 
-	respctrl.errors = append(respctrl.errors, e)
-	if respctrl.status != fiber.StatusOK {
-		respctrl.status = status
-	}
+	rdata.errors = append(rdata.errors, e)
+	rdata.status = status
 	return nil
 }

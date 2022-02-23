@@ -10,7 +10,7 @@ import (
 	"github.com/neoul/yangtree"
 )
 
-func (rc *RESTCtrl) Response(c *fiber.Ctx, respctrl *RespCtrl) error {
+func (rc *RESTCtrl) Response(c *fiber.Ctx, respctrl *respdata) error {
 	// Response content priority
 	// 1. Header error
 	// 2. Content error
@@ -86,7 +86,14 @@ func (rc *RESTCtrl) Response(c *fiber.Ctx, respctrl *RespCtrl) error {
 		if err != nil {
 			log.Fatalf("restconf: fault in error report: %v", err)
 		}
-		return c.Send(b)
+		return c.Status(respctrl.status).Send(b)
 	}
+	return nil
+}
+
+func (rc *RESTCtrl) ResponseError(c *fiber.Ctx, status int, etyp ErrorType, etag ErrorTag, emsg error) error {
+	rdata := &respdata{}
+	rc.SetError(c, rdata, status, etyp, etag, emsg)
+	rc.Response(c, rdata)
 	return nil
 }

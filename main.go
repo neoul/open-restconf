@@ -18,7 +18,7 @@ import (
 )
 
 //
-type RespCtrl struct {
+type respdata struct {
 	nodes       []yangtree.DataNode
 	errors      []yangtree.DataNode
 	groupSearch bool // true if searching multiple nodes
@@ -27,17 +27,14 @@ type RespCtrl struct {
 
 type RESTCtrl struct {
 	sync.RWMutex
-	DataRoot       yangtree.DataNode    // /restconf/data
-	RespCtrl       map[string]*RespCtrl // RequestID and its Response data
-	schemaError    *yangtree.SchemaNode
-	schemaErrors   *yangtree.SchemaNode
-	schemaRESTCONF *yangtree.SchemaNode
-	schemaData     *yangtree.SchemaNode
-	yangLibVersion string
-}
-
-func (rc *RESTCtrl) getRespCtrl(c *fiber.Ctx) *RespCtrl {
-	return rc.RespCtrl[c.GetRespHeader("X-Request-Id")]
+	DataRoot         yangtree.DataNode // /restconf/data
+	schemaError      *yangtree.SchemaNode
+	schemaErrors     *yangtree.SchemaNode
+	schemaRESTCONF   *yangtree.SchemaNode
+	schemaData       *yangtree.SchemaNode
+	schemaOperations *yangtree.SchemaNode
+	rootSchema       *yangtree.SchemaNode
+	yangLibVersion   string
 }
 
 var (
@@ -50,21 +47,10 @@ var (
 	excludes      = pflag.StringArrayP("exclude", "e", []string{}, "yang modules to be excluded from path generation")
 )
 
-func main() {
-	rc := &RESTCtrl{RespCtrl: make(map[string]*RespCtrl)}
-
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-	pflag.Parse()
-	if *help {
-		fmt.Fprintf(pflag.CommandLine.Output(), "\n open-restconf server\n")
-		fmt.Fprintf(pflag.CommandLine.Output(), "\n")
-		fmt.Fprintf(pflag.CommandLine.Output(), " usage: %s [flag]\n", os.Args[0])
-		fmt.Fprintf(pflag.CommandLine.Output(), "\n")
-		pflag.PrintDefaults()
-		fmt.Fprintf(pflag.CommandLine.Output(), "\n")
-		return
-	}
-	file := []string{
+func loadRESTCONFSchema(file, dir, excludes []string) *RESTCtrl {
+	var err error
+	rc := &RESTCtrl{}
+	file = append(file,
 		"modules/ietf-yang-library@2016-06-21.yang",
 		"modules/ietf-restconf@2017-01-26.yang",
 		// "modules/ietf-interfaces@2018-02-20.yang",
@@ -74,9 +60,8 @@ func main() {
 		// "modules/example/example-mod.yang",
 		// "modules/example/example-ops.yang",
 		// "modules/example/example-actions.yang",
-	}
-	file = append(file, *yangfiles...)
-	rootSchema, err := yangtree.Load(file, *dir, *excludes, yangtree.YANGTreeOption{YANGLibrary2016: true})
+	)
+	rc.rootSchema, err = yangtree.Load(file, dir, excludes, yangtree.YANGTreeOption{YANGLibrary2016: true})
 	if err != nil {
 		if merr, ok := err.(yangtree.MultipleError); ok {
 			for i := range merr {
@@ -87,7 +72,7 @@ func main() {
 		}
 	}
 	// load restconf.errors.
-	yangerrorSchema := rootSchema.ExtSchema["yang-errors"]
+	yangerrorSchema := rc.rootSchema.ExtSchema["yang-errors"]
 	if yangerrorSchema == nil {
 		log.Fatalf("restconf: unable to load yang-errors schema")
 	}
@@ -101,11 +86,11 @@ func main() {
 	}
 
 	// load restconf.top.
-	yangapiSchema := rootSchema.ExtSchema["yang-api"]
+	yangapiSchema := rc.rootSchema.ExtSchema["yang-api"]
 	if yangapiSchema == nil {
 		log.Fatalf("restconf: unable to load yang-api schema")
 	}
-	if rootSchema.GetYangLibrary().Exist("module[name=ietf-yang-library][revision=2016-06-21]") {
+	if rc.rootSchema.GetYangLibrary().Exist("module[name=ietf-yang-library][revision=2016-06-21]") {
 		rc.yangLibVersion = "2016-06-21"
 	}
 
@@ -114,17 +99,38 @@ func main() {
 	if rc.schemaRESTCONF == nil {
 		log.Fatalf("restconf: unable to load restconf schema")
 	}
-	for i := range rootSchema.Children {
-		if rootSchema.Children[i].RPC != nil {
-			rc.schemaRESTCONF.GetSchema("operations").Append(true, rootSchema.Children[i])
-		} else {
-			rc.schemaRESTCONF.GetSchema("data").Append(true, rootSchema.Children[i])
-		}
+	rc.schemaOperations = rc.schemaRESTCONF.GetSchema("operations")
+	if rc.schemaOperations == nil {
+		log.Fatalf("restconf: unable to load restconf/data schema")
 	}
 	rc.schemaData = rc.schemaRESTCONF.GetSchema("data")
 	if rc.schemaData == nil {
 		log.Fatalf("restconf: unable to load restconf/data schema")
 	}
+	for i := range rc.rootSchema.Children {
+		if rc.rootSchema.Children[i].RPC != nil {
+			rc.schemaOperations.Append(true, rc.rootSchema.Children[i])
+		} else {
+			rc.schemaData.Append(true, rc.rootSchema.Children[i])
+		}
+	}
+
+	return rc
+}
+
+func main() {
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	pflag.Parse()
+	if *help {
+		fmt.Fprintf(pflag.CommandLine.Output(), "\n open-restconf server\n")
+		fmt.Fprintf(pflag.CommandLine.Output(), "\n")
+		fmt.Fprintf(pflag.CommandLine.Output(), " usage: %s [flag]\n", os.Args[0])
+		fmt.Fprintf(pflag.CommandLine.Output(), "\n")
+		pflag.PrintDefaults()
+		fmt.Fprintf(pflag.CommandLine.Output(), "\n")
+		return
+	}
+	rc := loadRESTCONFSchema(*yangfiles, *dir, *excludes)
 
 	// create the data node.
 	dataroot, err := yangtree.New(rc.schemaData)
@@ -133,7 +139,7 @@ func main() {
 	}
 
 	// load yanglibrary
-	library := rootSchema.GetYangLibrary()
+	library := rc.rootSchema.GetYangLibrary()
 	if _, err := dataroot.Insert(library, nil); err != nil {
 		log.Fatalf("restconf: unable to add the yanglibrary: %v", err)
 	}
@@ -181,14 +187,22 @@ func main() {
 	if err := InstallRouteHostMeta(app, rc); err != nil {
 		log.Fatalf("restconf: %v", err)
 	}
-
-	if err := InstallRouteRoot(app, rc); err != nil {
+	if err := InstallRouteRESTCONF(app, rc); err != nil {
+		log.Fatalf("restconf: %v", err)
+	}
+	if err := InstallRouteData(app, rc); err != nil {
+		log.Fatalf("restconf: %v", err)
+	}
+	if err := InstallRouteRPC(app, rc); err != nil {
+		log.Fatalf("restconf: %v", err)
+	}
+	if err := InstallRouteSchemaPath(app, rc); err != nil {
 		log.Fatalf("restconf: %v", err)
 	}
 
 	log.Println("[modules loaded]")
-	mnames := make([]string, 0, len(rootSchema.Modules.Modules))
-	for k := range rootSchema.Modules.Modules {
+	mnames := make([]string, 0, len(rc.rootSchema.Modules.Modules))
+	for k := range rc.rootSchema.Modules.Modules {
 		if strings.Contains(k, "@") {
 			mnames = insertionSort(mnames, k)
 		}
@@ -198,7 +212,7 @@ func main() {
 	}
 	log.Println("[submodules loaded]")
 	mnames = mnames[:0]
-	for k := range rootSchema.Modules.SubModules {
+	for k := range rc.rootSchema.Modules.SubModules {
 		if strings.Contains(k, "@") {
 			mnames = insertionSort(mnames, k)
 		}
