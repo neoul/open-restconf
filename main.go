@@ -17,14 +17,6 @@ import (
 	"github.com/spf13/pflag"
 )
 
-//
-type respdata struct {
-	nodes       []yangtree.DataNode
-	errors      []yangtree.DataNode
-	groupSearch bool // true if searching multiple nodes
-	status      int  // HTTP response status
-}
-
 type RESTCtrl struct {
 	sync.RWMutex
 	DataRoot         yangtree.DataNode // /restconf/data
@@ -47,7 +39,7 @@ var (
 	excludes      = pflag.StringArrayP("exclude", "e", []string{}, "yang modules to be excluded from path generation")
 )
 
-func loadRESTCONFSchema(file, dir, excludes []string) *RESTCtrl {
+func loadSchema(file, dir, excludes []string) *RESTCtrl {
 	var err error
 	rc := &RESTCtrl{}
 	file = append(file,
@@ -130,7 +122,7 @@ func main() {
 		fmt.Fprintf(pflag.CommandLine.Output(), "\n")
 		return
 	}
-	rc := loadRESTCONFSchema(*yangfiles, *dir, *excludes)
+	rc := loadSchema(*yangfiles, *dir, *excludes)
 
 	// create the data node.
 	dataroot, err := yangtree.New(rc.schemaData)
@@ -177,7 +169,9 @@ func main() {
 	// }
 
 	// create the restconf service
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		ErrorHandler: errhandler,
+	})
 	app.Use(logger.New(logger.Config{
 		Format: "[${time}] ${status} - ${latency} ${method} ${path}\n",
 	}))
@@ -204,7 +198,7 @@ func main() {
 	mnames := make([]string, 0, len(rc.rootSchema.Modules.Modules))
 	for k := range rc.rootSchema.Modules.Modules {
 		if strings.Contains(k, "@") {
-			mnames = insertionSort(mnames, k)
+			mnames = InsertionSort(mnames, k)
 		}
 	}
 	for i := range mnames {
@@ -214,7 +208,7 @@ func main() {
 	mnames = mnames[:0]
 	for k := range rc.rootSchema.Modules.SubModules {
 		if strings.Contains(k, "@") {
-			mnames = insertionSort(mnames, k)
+			mnames = InsertionSort(mnames, k)
 		}
 	}
 	for i := range mnames {

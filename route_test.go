@@ -7,7 +7,7 @@ import (
 )
 
 func Test_RPath2XPath(t *testing.T) {
-	rc := loadRESTCONFSchema(*yangfiles, *dir, *excludes)
+	rc := loadSchema(*yangfiles, *dir, *excludes)
 
 	rpath := []string{
 		"/modules-state/module=yangtree,2020-08-18/namespace",

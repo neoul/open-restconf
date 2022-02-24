@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"strings"
 
 	"github.com/gofiber/fiber"
 	"github.com/neoul/yangtree"
@@ -191,31 +193,143 @@ func (et ErrorTag) Status() int {
 	}
 }
 
-func (rc *RESTCtrl) SetError(c *fiber.Ctx, rdata *respdata, status int, etyp ErrorType, etag ErrorTag, emsg error) error {
+func errhandler(c *fiber.Ctx, err error) error {
+	if e, ok := err.(*RespError); ok {
+		fmt.Printf("err %v %T", err, err)
+		return e.Response(c)
+	}
+	// Status code defaults to 500
+	code := fiber.StatusInternalServerError
+	if e, ok := err.(*fiber.Error); ok {
+		code = e.Code
+	}
+	return c.Status(code).SendString(err.Error())
+}
+
+type RespError struct {
+	Errors []yangtree.DataNode
+	Code   int // HTTP response status
+}
+
+func NewError(rc *RESTCtrl, code int, etyp ErrorType, etag ErrorTag, epath string, emsg interface{}) *RespError {
+	re := &RespError{}
 	e, err := yangtree.NewWithValue(rc.schemaError,
 		map[interface{}]interface{}{
 			"error-tag":  etag.String(),
 			"error-type": etyp.String(),
-			"error-path": c.Path(),
+			"error-path": epath,
 		})
 	if err != nil {
 		log.Fatalf("restconf: fault in error report: %v", err)
 	}
-	if emsg != nil {
-		if fe, ok := emsg.(*fiber.Error); ok {
-			if err := yangtree.SetValue(e, "error-message", nil, fe.Message); err != nil {
-				log.Fatalf("restconf: fault in error report: %v", err)
-			}
-		} else {
-			if err := yangtree.SetValue(e, "error-message", nil, emsg.Error()); err != nil {
+	if fe, ok := emsg.(*fiber.Error); ok {
+		err = yangtree.SetValue(e, "error-message", nil, fe.Message)
+	} else if s, ok := emsg.(string); ok {
+		err = yangtree.SetValue(e, "error-message", nil, s)
+	} else if em, ok := emsg.(error); ok {
+		err = yangtree.SetValue(e, "error-message", nil, em.Error())
+	}
+	if err != nil {
+		log.Fatalf("restconf: fault in error report: %v", err)
+	}
+	re.Errors = append(re.Errors, e)
+	re.Code = code
+	return re
+}
+
+func (re *RespError) Add(rc *RESTCtrl, code int, etyp ErrorType, etag ErrorTag, epath string, emsg interface{}) *RespError {
+	if re == nil {
+		return NewError(rc, code, etyp, etag, epath, emsg)
+	}
+	e, err := yangtree.NewWithValue(rc.schemaError,
+		map[interface{}]interface{}{
+			"error-tag":  etag.String(),
+			"error-type": etyp.String(),
+			"error-path": epath,
+		})
+	if err != nil {
+		log.Fatalf("restconf: fault in error report: %v", err)
+	}
+	if fe, ok := emsg.(*fiber.Error); ok {
+		err = yangtree.SetValue(e, "error-message", nil, fe.Message)
+	} else if s, ok := emsg.(string); ok {
+		err = yangtree.SetValue(e, "error-message", nil, s)
+	} else if em, ok := emsg.(error); ok {
+		err = yangtree.SetValue(e, "error-message", nil, em.Error())
+	}
+	if err != nil {
+		log.Fatalf("restconf: fault in error report: %v", err)
+	}
+	re.Errors = append(re.Errors, e)
+	return re
+}
+
+func (re *RespError) Error() string {
+	if len(re.Errors) > 0 {
+		errorsSchema := re.Errors[0].Schema().Parent
+		enode, err := yangtree.New(errorsSchema)
+		if err != nil {
+			log.Fatalf("restconf: errors/error schema not loaded")
+		}
+		for i := range re.Errors {
+			if _, err := enode.Insert(re.Errors[i], nil); err != nil {
 				log.Fatalf("restconf: fault in error report: %v", err)
 			}
 		}
+
+		b, err := yangtree.MarshalJSONIndent(enode, "", " ", yangtree.RepresentItself{})
+		if err != nil {
+			log.Fatalf("restconf: fault in error report: %v", err)
+		}
+		return string(b)
+	}
+	return "unspecified error"
+}
+
+func (re *RespError) Response(c *fiber.Ctx) error {
+	var marshal func(node yangtree.DataNode, prefix, indent string, option ...yangtree.Option) ([]byte, error)
+
+	c.Set("Server", "open-restconf")
+	c.Set("Cache-Control", "no-cache")
+
+	marshal = yangtree.MarshalXMLIndent
+	accepts := c.Accepts("*/*", "text/json", "text/yaml", "text/xml",
+		"application/xml", "application/json", "application/yaml",
+		"application/yang-data+xml", "application/yang-data+json", "application/yang-data+yaml")
+	switch {
+	case accepts == "*/*": // if all types are allowed
+		c.Set("Content-Type", "application/yang-data+xml")
+		marshal = yangtree.MarshalXMLIndent
+	case strings.HasSuffix(accepts, "xml"):
+		c.Set("Content-Type", accepts)
+		marshal = yangtree.MarshalXMLIndent
+	case strings.HasSuffix(accepts, "json"):
+		c.Set("Content-Type", accepts)
+		marshal = yangtree.MarshalJSONIndent
+	case strings.HasSuffix(accepts, "yaml"):
+		c.Set("Content-Type", accepts)
+		marshal = yangtree.MarshalYAMLIndent
+	default:
+		c.Set("Content-Type", "application/yang-data+xml")
 	}
 
-	// c.GetRespHeader("X-Request-Id")
-
-	rdata.errors = append(rdata.errors, e)
-	rdata.status = status
+	if len(re.Errors) > 0 {
+		errorsSchema := re.Errors[0].Schema().Parent
+		enode, err := yangtree.New(errorsSchema)
+		if err != nil {
+			log.Fatalf("restconf: errors/error schema not loaded")
+		}
+		for i := range re.Errors {
+			if _, err := enode.Insert(re.Errors[i], nil); err != nil {
+				log.Fatalf("restconf: fault in error report: %v", err)
+			}
+		}
+		b, err := marshal(enode, "", " ", yangtree.RepresentItself{})
+		if err != nil {
+			log.Fatalf("restconf: fault in error report: %v", err)
+		}
+		return c.Status(re.Code).Send(b)
+	}
+	c.Status(re.Code)
 	return nil
 }

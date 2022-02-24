@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -80,45 +79,45 @@ func InstallRouteRPC(app *fiber.App, rc *RESTCtrl) error {
 		method := c.Method()
 		uri := c.Path()
 		if method != "POST" {
-			return rc.ResponseError(c, fiber.StatusMethodNotAllowed, ETypeProtocol,
-				ETagOperationFailed, fmt.Errorf("use HTTP POST instead of %s for restconf rpc", c.Method()))
+			return NewError(rc, fiber.StatusMethodNotAllowed, ETypeProtocol, ETagOperationFailed,
+				uri, fmt.Errorf("use HTTP POST instead of %s for restconf rpc", c.Method()))
 		}
 		rc.Lock()
 		defer rc.Unlock()
 		rpcname := uri[len("/restconf/operations/"):]
 		schema := rc.schemaOperations.GetSchema(rpcname)
 		if schema == nil {
-			return rc.ResponseError(c, fiber.StatusNotFound, ETypeApplication, ETagUnknownElement,
-				fmt.Errorf("unable to identify rpc %s", rpcname))
+			return NewError(rc, fiber.StatusNotFound, ETypeApplication, ETagUnknownElement,
+				uri, fmt.Errorf("unable to identify rpc %s", rpcname))
 		}
-		respctrl := &respdata{nodes: []yangtree.DataNode{rc.DataRoot}}
-		log.Println(rc.schemaOperations, schema)
-		if schema.HasRPCInput() {
-			log.Println(string(c.Body()))
-			rpc, err := yangtree.New(schema)
-			if err != nil {
-				return rc.ResponseError(c, fiber.StatusInternalServerError, ETypeApplication,
-					ETagOperationFailed, fmt.Errorf("unable to load the schema of the rpc %v: %v", schema, err))
-			}
-			contentType := string(c.Request().Header.ContentType())
-			switch contentType {
-			case "text/json", "application/json", "application/yang-data+json":
-				err = yangtree.UnmarshalJSON(rpc, c.Body())
-			case "text/yaml", "application/yaml", "application/yang-data+yaml":
-				err = yangtree.UnmarshalYAML(rpc, c.Body())
-			case "text/xml", "application/xml", "application/yang-data+xml":
-				err = yangtree.UnmarshalXML(rpc, c.Body())
-			default:
-				rc.SetError(c, respctrl, fiber.StatusNotImplemented, ETypeProtocol,
-					ETagInvalidValue, errors.New("not supported Content-Type"))
-			}
-			if err != nil {
-				return rc.SetError(c, respctrl, fiber.StatusBadRequest,
-					ETypeApplication, ETagMarlformedMessage,
-					fmt.Errorf("parsing rpc failed: %v", err))
-			}
-			return nil
-		}
+		// rdata := &RespData{nodes: []yangtree.DataNode{rc.DataRoot}}
+		// log.Println(rc.schemaOperations, schema)
+		// if schema.HasRPCInput() {
+		// 	log.Println(string(c.Body()))
+		// 	rpc, err := yangtree.New(schema)
+		// 	if err != nil {
+		// 		return rc.ResponseError(c, fiber.StatusInternalServerError, ETypeApplication,
+		// 			ETagOperationFailed, fmt.Errorf("unable to load the schema of the rpc %v: %v", schema, err))
+		// 	}
+		// 	contentType := string(c.Request().Header.ContentType())
+		// 	switch contentType {
+		// 	case "text/json", "application/json", "application/yang-data+json":
+		// 		err = yangtree.UnmarshalJSON(rpc, c.Body())
+		// 	case "text/yaml", "application/yaml", "application/yang-data+yaml":
+		// 		err = yangtree.UnmarshalYAML(rpc, c.Body())
+		// 	case "text/xml", "application/xml", "application/yang-data+xml":
+		// 		err = yangtree.UnmarshalXML(rpc, c.Body())
+		// 	default:
+		// 		rc.SetError(c, rdata, fiber.StatusNotImplemented, ETypeProtocol,
+		// 			ETagInvalidValue, errors.New("not supported Content-Type"))
+		// 	}
+		// 	if err != nil {
+		// 		return rc.SetError(c, rdata, fiber.StatusBadRequest,
+		// 			ETypeApplication, ETagMarlformedMessage,
+		// 			fmt.Errorf("parsing rpc failed: %v", err))
+		// 	}
+		// 	return nil
+		// }
 		return nil
 	})
 	return nil
@@ -138,39 +137,73 @@ func InstallRouteData(app *fiber.App, rc *RESTCtrl) error {
 		}
 
 		// requestid := c.GetRespHeader("X-Request-Id")
-		respdata := &respdata{nodes: []yangtree.DataNode{rc.DataRoot}}
+		RespData := &RespData{Nodes: []yangtree.DataNode{rc.DataRoot}}
 
 		switch method {
 		case "GET":
 			xpath, err := RPath2XPath(rc.schemaData, &uri)
 			if err != nil {
-				rc.SetError(c, respdata, fiber.StatusInternalServerError,
-					ETypeApplication, ETagOperationFailed, err)
-				break
+				return NewError(rc, fiber.StatusInternalServerError, ETypeProtocol,
+					ETagOperationFailed, uri, err)
 			}
 			found, err := yangtree.Find(rc.DataRoot, xpath)
 			if err != nil {
-				rc.SetError(c, respdata, fiber.StatusInternalServerError,
-					ETypeApplication, ETagOperationFailed, err)
-				break
+				return NewError(rc, fiber.StatusInternalServerError, ETypeApplication,
+					ETagOperationFailed, uri, err)
 			}
 			if len(found) == 0 {
-				rc.SetError(c, respdata, fiber.StatusNotFound, ETypeApplication, ETagDataMissing,
-					errors.New("unable to identify the requested resource"))
-				break
+				return NewError(rc, fiber.StatusNotFound, ETypeApplication,
+					ETagDataMissing, uri, "unable to identify the requested resource")
 			}
-			respdata.nodes = found
+			RespData.Nodes = found
 		default:
-			rc.SetError(c, respdata, fiber.StatusMethodNotAllowed, ETypeProtocol,
-				ETagOperationNotSupported, fmt.Errorf("HTTP %s not implemented yet", c.Method()))
+			return NewError(rc, fiber.StatusMethodNotAllowed, ETypeProtocol, ETagOperationFailed,
+				uri, fmt.Errorf("HTTP %s not implemented yet", method))
 		}
-		// delete(rc.respdata, requestid)
-		return rc.Response(c, respdata)
+		return rc.Response(c, RespData)
 	})
 	return nil
 }
 
 func InstallRouteRESTCONF(app *fiber.App, rc *RESTCtrl) error {
+	// Check Request Validation
+	app.Group("/restconf", func(c *fiber.Ctx) error {
+		c.Set("Server", "open-restconf")
+		c.Set("Cache-Control", "no-cache")
+		switch c.Method() {
+		case "PUT":
+		case "GET":
+		default:
+
+		}
+
+		accepts := c.Accepts("*/*", "text/json", "text/yaml", "text/xml",
+			"application/xml", "application/json", "application/yaml",
+			"application/yang-data+xml", "application/yang-data+json", "application/yang-data+yaml")
+		switch {
+		case accepts == "*/*": // if all types are allowed
+			c.Set("Content-Type", "application/yang-data+xml")
+		case strings.HasSuffix(accepts, "xml"):
+			c.Set("Content-Type", accepts)
+		case strings.HasSuffix(accepts, "json"):
+			c.Set("Content-Type", accepts)
+		case strings.HasSuffix(accepts, "yaml"):
+			c.Set("Content-Type", accepts)
+		default:
+			c.Set("Content-Type", "application/yang-data+xml")
+			return NewError(rc, fiber.StatusNotAcceptable, ETypeProtocol,
+				ETagInvalidValue, c.Path(), "not supported Content-Type")
+		}
+		if err := c.Next(); err != nil {
+			return err
+		}
+		// send an error if the resource not found.
+		if c.Response().StatusCode() == fiber.StatusNotFound {
+			return NewError(rc, fiber.StatusNotFound, ETypeApplication,
+				ETagDataMissing, c.Path(), "resource not found")
+		}
+		return nil
+	})
 	empty, err := yangtree.NewWithValue(rc.schemaRESTCONF,
 		map[interface{}]interface{}{
 			"data":                 map[interface{}]interface{}{},
@@ -181,24 +214,22 @@ func InstallRouteRESTCONF(app *fiber.App, rc *RESTCtrl) error {
 		log.Fatalf("restconf: %v", err)
 	}
 	app.All("/restconf", func(c *fiber.Ctx) error {
-		respdata := &respdata{nodes: []yangtree.DataNode{empty}}
 		switch c.Method() {
 		case "GET":
 		default:
-			rc.SetError(c, respdata, fiber.StatusMethodNotAllowed, ETypeProtocol,
-				ETagResourceDenied, fmt.Errorf("use HTTP GET instead of %s", c.Method()))
+			return NewError(rc, fiber.StatusMethodNotAllowed, ETypeProtocol, ETagOperationFailed,
+				c.Path(), fmt.Errorf("use HTTP GET instead of %s", c.Method()))
 		}
-		return rc.Response(c, respdata)
+		return rc.Response(c, &RespData{Nodes: []yangtree.DataNode{empty}})
 	})
 	app.All("/restconf/yang-library-version", func(c *fiber.Ctx) error {
-		respdata := &respdata{nodes: []yangtree.DataNode{empty.Get("yang-library-version")}}
 		switch c.Method() {
 		case "GET":
 		default:
-			rc.SetError(c, respdata, fiber.StatusMethodNotAllowed, ETypeProtocol,
-				ETagResourceDenied, fmt.Errorf("use HTTP GET instead of %s", c.Method()))
+			return NewError(rc, fiber.StatusMethodNotAllowed, ETypeProtocol, ETagOperationFailed,
+				c.Path(), fmt.Errorf("use HTTP GET instead of %s", c.Method()))
 		}
-		return rc.Response(c, respdata)
+		return rc.Response(c, &RespData{Nodes: []yangtree.DataNode{empty.Get("yang-library-version")}})
 	})
 	return nil
 }
@@ -218,10 +249,8 @@ func InstallRouteHostMeta(app *fiber.App, rc *RESTCtrl) error {
 			fmt.Fprintf(c, hostmeta, "/restconf")
 			return nil
 		default:
-			respdata := &respdata{}
-			rc.SetError(c, respdata, fiber.StatusMethodNotAllowed, ETypeProtocol,
-				ETagResourceDenied, fmt.Errorf("use HTTP GET instead of %s to get host-meta", c.Method()))
-			return rc.Response(c, respdata)
+			return NewError(rc, fiber.StatusMethodNotAllowed, ETypeProtocol, ETagOperationFailed,
+				c.Path(), fmt.Errorf("use HTTP GET instead of %s", c.Method()))
 		}
 	})
 	return nil
@@ -243,10 +272,8 @@ func InstallRouteSchemaPath(app *fiber.App, rc *RESTCtrl) error {
 			fmt.Fprintf(c, "]")
 			return nil
 		default:
-			respdata := &respdata{}
-			rc.SetError(c, respdata, fiber.StatusMethodNotAllowed, ETypeProtocol,
-				ETagResourceDenied, fmt.Errorf("use HTTP GET instead of %s to get host-meta", c.Method()))
-			return rc.Response(c, respdata)
+			return NewError(rc, fiber.StatusMethodNotAllowed, ETypeProtocol, ETagOperationFailed,
+				c.Path(), fmt.Errorf("use HTTP GET instead of %s", c.Method()))
 		}
 	})
 	return nil

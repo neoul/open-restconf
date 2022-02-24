@@ -1,8 +1,6 @@
 package main
 
 import (
-	"errors"
-	"log"
 	"strings"
 
 	"github.com/gofiber/fiber"
@@ -10,20 +8,27 @@ import (
 	"github.com/neoul/yangtree"
 )
 
-func (rc *RESTCtrl) Response(c *fiber.Ctx, respctrl *respdata) error {
+//
+type RespData struct {
+	Nodes       []yangtree.DataNode
+	groupSearch bool // true if searching multipleNnodes
+	status      int  // HTTP response status
+}
+
+func (rc *RESTCtrl) Response(c *fiber.Ctx, rdata *RespData) error {
 	// Response content priority
 	// 1. Header error
 	// 2. Content error
 	// 3. No error
-
-	var err error
-	var enode yangtree.DataNode
-	var marshal func(node yangtree.DataNode, prefix, indent string, option ...yangtree.Option) ([]byte, error)
+	if len(rdata.Nodes) == 0 {
+		return NewError(rc, fiber.StatusNotFound, ETypeApplication,
+			ETagOperationFailed, c.Path(), "resource not found")
+	}
 
 	c.Set("Server", "open-restconf")
 	c.Set("Cache-Control", "no-cache")
 
-	marshal = yangtree.MarshalXMLIndent
+	marshal := yangtree.MarshalXMLIndent
 	accepts := c.Accepts("*/*", "text/json", "text/yaml", "text/xml",
 		"application/xml", "application/json", "application/yaml",
 		"application/yang-data+xml", "application/yang-data+json", "application/yang-data+yaml")
@@ -42,58 +47,29 @@ func (rc *RESTCtrl) Response(c *fiber.Ctx, respctrl *respdata) error {
 		marshal = yangtree.MarshalYAMLIndent
 	default:
 		c.Set("Content-Type", "application/yang-data+xml")
-		rc.SetError(c, respctrl, fiber.StatusNotAcceptable, ETypeProtocol,
-			ETagInvalidValue, errors.New("not supported Content-Type"))
+		marshal = yangtree.MarshalXMLIndent
 	}
-
-	if len(respctrl.errors) == 0 {
-		switch c.Method() {
-		case "GET":
-			var node yangtree.DataNode
-			if respctrl.groupSearch || len(respctrl.nodes) > 1 {
-				node, err = yangtree.ConvertToGroup(respctrl.nodes[0].Schema(), respctrl.nodes)
-				if err != nil {
-					// StatusPreconditionFailed - for GET or HEAD when If-Unmodified-Since or If-None-Match headers is not fulfilled.
-					rc.SetError(c, respctrl, fiber.StatusInternalServerError,
-						ETypeApplication, ETagOperationFailed, err)
-					break
-				}
-			} else {
-				node = respctrl.nodes[0]
-			}
-			b, err := marshal(node, "", " ", yangtree.RepresentItself{})
+	switch c.Method() {
+	case "GET":
+		var err error
+		var node yangtree.DataNode
+		if rdata.groupSearch || len(rdata.Nodes) > 1 {
+			node, err = yangtree.ConvertToGroup(rdata.Nodes[0].Schema(), rdata.Nodes)
 			if err != nil {
-				rc.SetError(c, respctrl, fiber.StatusInternalServerError, ETypeRPC, ETagOperationFailed, err)
-				break
+				// StatusPreconditionFailed - for GET or HEAD when If-Unmodified-Since or If-None-Match headers is not fulfilled.
+				return NewError(rc, fiber.StatusInternalServerError, ETypeProtocol,
+					ETagOperationFailed, c.Path(), err)
 			}
-			return c.Send(b)
-		case "POST":
+		} else {
+			node = rdata.Nodes[0]
 		}
-	}
-
-	if len(respctrl.errors) > 0 {
-		enode, err = yangtree.New(rc.schemaErrors)
+		b, err := marshal(node, "", " ", yangtree.RepresentItself{})
 		if err != nil {
-			log.Fatalf("restconf: errors/error schema not loaded")
+			return NewError(rc, fiber.StatusInternalServerError, ETypeProtocol,
+				ETagOperationFailed, c.Path(), err)
 		}
-		for i := range respctrl.errors {
-			if _, err := enode.Insert(respctrl.errors[i], nil); err != nil {
-				log.Fatalf("restconf: fault in error report: %v", err)
-			}
-		}
-
-		b, err := marshal(enode, "", " ", yangtree.RepresentItself{})
-		if err != nil {
-			log.Fatalf("restconf: fault in error report: %v", err)
-		}
-		return c.Status(respctrl.status).Send(b)
+		return c.Send(b)
+	case "POST":
 	}
-	return nil
-}
-
-func (rc *RESTCtrl) ResponseError(c *fiber.Ctx, status int, etyp ErrorType, etag ErrorTag, emsg error) error {
-	rdata := &respdata{}
-	rc.SetError(c, rdata, status, etyp, etag, emsg)
-	rc.Response(c, rdata)
 	return nil
 }
