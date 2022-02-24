@@ -143,17 +143,17 @@ func InstallRouteData(app *fiber.App, rc *RESTCtrl) error {
 		case "GET":
 			xpath, err := RPath2XPath(rc.schemaData, &uri)
 			if err != nil {
-				return NewError(rc, fiber.StatusInternalServerError, ETypeProtocol,
-					ETagOperationFailed, uri, err)
+				return NewError(rc, fiber.StatusInternalServerError, ETypeApplication,
+					ETagBadElement, c.Path(), err)
 			}
 			found, err := yangtree.Find(rc.DataRoot, xpath)
 			if err != nil {
 				return NewError(rc, fiber.StatusInternalServerError, ETypeApplication,
-					ETagOperationFailed, uri, err)
+					ETagOperationFailed, c.Path(), err)
 			}
 			if len(found) == 0 {
 				return NewError(rc, fiber.StatusNotFound, ETypeApplication,
-					ETagDataMissing, uri, "unable to identify the requested resource")
+					ETagDataMissing, c.Path(), "unable to find the requested resource")
 			}
 			RespData.Nodes = found
 		default:
@@ -190,9 +190,8 @@ func InstallRouteRESTCONF(app *fiber.App, rc *RESTCtrl) error {
 		case strings.HasSuffix(accepts, "yaml"):
 			c.Set("Content-Type", accepts)
 		default:
-			c.Set("Content-Type", "application/yang-data+xml")
-			return NewError(rc, fiber.StatusNotAcceptable, ETypeProtocol,
-				ETagInvalidValue, c.Path(), "not supported Content-Type")
+			return NewError(rc, fiber.StatusNotAcceptable, ETypeTransport,
+				ETagInvalidValue, c.Path(), "not supported Accepts (Content-Type)")
 		}
 		if err := c.Next(); err != nil {
 			return err
@@ -217,8 +216,8 @@ func InstallRouteRESTCONF(app *fiber.App, rc *RESTCtrl) error {
 		switch c.Method() {
 		case "GET":
 		default:
-			return NewError(rc, fiber.StatusMethodNotAllowed, ETypeProtocol, ETagOperationFailed,
-				c.Path(), fmt.Errorf("use HTTP GET instead of %s", c.Method()))
+			return NewError(rc, fiber.StatusMethodNotAllowed, ETypeTransport,
+				ETagOperationFailed, c.Path(), fmt.Errorf("HTTP GET only allowed for %s", c.Path()))
 		}
 		return rc.Response(c, &RespData{Nodes: []yangtree.DataNode{empty}})
 	})
@@ -226,11 +225,18 @@ func InstallRouteRESTCONF(app *fiber.App, rc *RESTCtrl) error {
 		switch c.Method() {
 		case "GET":
 		default:
-			return NewError(rc, fiber.StatusMethodNotAllowed, ETypeProtocol, ETagOperationFailed,
-				c.Path(), fmt.Errorf("use HTTP GET instead of %s", c.Method()))
+			return NewError(rc, fiber.StatusMethodNotAllowed, ETypeTransport,
+				ETagOperationFailed, c.Path(), fmt.Errorf("HTTP GET only allowed for %s", c.Path()))
 		}
 		return rc.Response(c, &RespData{Nodes: []yangtree.DataNode{empty.Get("yang-library-version")}})
 	})
+
+	if err := InstallRouteData(app, rc); err != nil {
+		log.Fatalf("restconf: %v", err)
+	}
+	if err := InstallRouteRPC(app, rc); err != nil {
+		log.Fatalf("restconf: %v", err)
+	}
 	return nil
 }
 
@@ -249,8 +255,8 @@ func InstallRouteHostMeta(app *fiber.App, rc *RESTCtrl) error {
 			fmt.Fprintf(c, hostmeta, "/restconf")
 			return nil
 		default:
-			return NewError(rc, fiber.StatusMethodNotAllowed, ETypeProtocol, ETagOperationFailed,
-				c.Path(), fmt.Errorf("use HTTP GET instead of %s", c.Method()))
+			return NewError(rc, fiber.StatusMethodNotAllowed, ETypeTransport,
+				ETagOperationFailed, c.Path(), fmt.Errorf("HTTP GET only allowed for %s", c.Path()))
 		}
 	})
 	return nil
@@ -272,8 +278,8 @@ func InstallRouteSchemaPath(app *fiber.App, rc *RESTCtrl) error {
 			fmt.Fprintf(c, "]")
 			return nil
 		default:
-			return NewError(rc, fiber.StatusMethodNotAllowed, ETypeProtocol, ETagOperationFailed,
-				c.Path(), fmt.Errorf("use HTTP GET instead of %s", c.Method()))
+			return NewError(rc, fiber.StatusMethodNotAllowed, ETypeTransport,
+				ETagOperationFailed, c.Path(), fmt.Errorf("HTTP GET only allowed for %s", c.Path()))
 		}
 	})
 	return nil

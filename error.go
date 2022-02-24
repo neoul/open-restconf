@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"strings"
 
@@ -20,10 +19,10 @@ import (
 type ErrorType int
 
 const (
-	ETypeApplication ErrorType = iota
-	ETypeProtocol
-	ETypeRPC
-	ETypeTransport
+	ETypeApplication ErrorType = iota // error related to schema or data node
+	ETypeProtocol                     // error in rpc (including user-defined rpc)
+	ETypeRPC                          // error in message Format/char-types
+	ETypeTransport                    // error in HTTP/TLS
 )
 
 func (et ErrorType) String() string {
@@ -195,7 +194,6 @@ func (et ErrorTag) Status() int {
 
 func errhandler(c *fiber.Ctx, err error) error {
 	if e, ok := err.(*RespError); ok {
-		fmt.Printf("err %v %T", err, err)
 		return e.Response(c)
 	}
 	// Status code defaults to 500

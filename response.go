@@ -16,13 +16,9 @@ type RespData struct {
 }
 
 func (rc *RESTCtrl) Response(c *fiber.Ctx, rdata *RespData) error {
-	// Response content priority
-	// 1. Header error
-	// 2. Content error
-	// 3. No error
 	if len(rdata.Nodes) == 0 {
 		return NewError(rc, fiber.StatusNotFound, ETypeApplication,
-			ETagOperationFailed, c.Path(), "resource not found")
+			ETagDataMissing, c.Path(), "resource not found")
 	}
 
 	c.Set("Server", "open-restconf")
@@ -57,7 +53,7 @@ func (rc *RESTCtrl) Response(c *fiber.Ctx, rdata *RespData) error {
 			node, err = yangtree.ConvertToGroup(rdata.Nodes[0].Schema(), rdata.Nodes)
 			if err != nil {
 				// StatusPreconditionFailed - for GET or HEAD when If-Unmodified-Since or If-None-Match headers is not fulfilled.
-				return NewError(rc, fiber.StatusInternalServerError, ETypeProtocol,
+				return NewError(rc, fiber.StatusInternalServerError, ETypeApplication,
 					ETagOperationFailed, c.Path(), err)
 			}
 		} else {
@@ -65,7 +61,7 @@ func (rc *RESTCtrl) Response(c *fiber.Ctx, rdata *RespData) error {
 		}
 		b, err := marshal(node, "", " ", yangtree.RepresentItself{})
 		if err != nil {
-			return NewError(rc, fiber.StatusInternalServerError, ETypeProtocol,
+			return NewError(rc, fiber.StatusInternalServerError, ETypeApplication,
 				ETagOperationFailed, c.Path(), err)
 		}
 		return c.Send(b)

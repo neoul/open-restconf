@@ -184,12 +184,6 @@ func main() {
 	if err := InstallRouteRESTCONF(app, rc); err != nil {
 		log.Fatalf("restconf: %v", err)
 	}
-	if err := InstallRouteData(app, rc); err != nil {
-		log.Fatalf("restconf: %v", err)
-	}
-	if err := InstallRouteRPC(app, rc); err != nil {
-		log.Fatalf("restconf: %v", err)
-	}
 	if err := InstallRouteSchemaPath(app, rc); err != nil {
 		log.Fatalf("restconf: %v", err)
 	}
