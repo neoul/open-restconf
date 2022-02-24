@@ -10,17 +10,12 @@ import (
 
 //
 type RespData struct {
-	Nodes       []yangtree.DataNode
-	groupSearch bool // true if searching multipleNnodes
-	status      int  // HTTP response status
+	Nodes []yangtree.DataNode
+	// groupSearch bool // true if searching multipleNnodes
+	Status int // HTTP response status
 }
 
 func (rc *RESTCtrl) Response(c *fiber.Ctx, rdata *RespData) error {
-	if len(rdata.Nodes) == 0 {
-		return NewError(rc, fiber.StatusNotFound, ETypeApplication,
-			ETagDataMissing, c.Path(), "resource not found")
-	}
-
 	c.Set("Server", "open-restconf")
 	c.Set("Cache-Control", "no-cache")
 
@@ -46,26 +41,38 @@ func (rc *RESTCtrl) Response(c *fiber.Ctx, rdata *RespData) error {
 		marshal = yangtree.MarshalXMLIndent
 	}
 	switch c.Method() {
-	case "GET":
+	case "GET": // netconf get, get-config
+		if len(rdata.Nodes) == 0 {
+			return NewError(rc, fiber.StatusNotFound, ETypeApplication,
+				ETagDataMissing, c.Path(), "resource not found")
+		}
 		var err error
+		var b []byte
 		var node yangtree.DataNode
-		if rdata.groupSearch || len(rdata.Nodes) > 1 {
+		if len(rdata.Nodes) > 1 {
 			node, err = yangtree.ConvertToGroup(rdata.Nodes[0].Schema(), rdata.Nodes)
 			if err != nil {
-				// StatusPreconditionFailed - for GET or HEAD when If-Unmodified-Since or If-None-Match headers is not fulfilled.
+				// StatusPreconditionFailed - for GET or HEAD
+				// when If-Unmodified-Since or If-None-Match headers is not fulfilled.
 				return NewError(rc, fiber.StatusInternalServerError, ETypeApplication,
 					ETagOperationFailed, c.Path(), err)
 			}
 		} else {
 			node = rdata.Nodes[0]
 		}
-		b, err := marshal(node, "", " ", yangtree.RepresentItself{})
+		b, err = marshal(node, "", " ", yangtree.RepresentItself{})
 		if err != nil {
 			return NewError(rc, fiber.StatusInternalServerError, ETypeApplication,
 				ETagOperationFailed, c.Path(), err)
 		}
+		if rdata.Status != 0 {
+			c.Status(rdata.Status)
+		}
 		return c.Send(b)
-	case "POST":
+	case "POST": // netconf rpc
+		if rdata.Status != 0 {
+			c.Status(rdata.Status)
+		}
 	}
 	return nil
 }

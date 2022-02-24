@@ -76,49 +76,59 @@ func RPath2XPath(schema *yangtree.SchemaNode, uri *string) (string, error) {
 
 func InstallRouteRPC(app *fiber.App, rc *RESTCtrl) error {
 	app.Group("/restconf/operations/", func(c *fiber.Ctx) error {
-		method := c.Method()
-		uri := c.Path()
-		if method != "POST" {
-			return NewError(rc, fiber.StatusMethodNotAllowed, ETypeProtocol, ETagOperationFailed,
-				uri, fmt.Errorf("use HTTP POST instead of %s for restconf rpc", c.Method()))
+		if c.Method() != "POST" {
+			return NewError(rc, fiber.StatusMethodNotAllowed, ETypeTransport,
+				ETagAccessDenied, c.Path(), "HTTP POST only allowed for rpc")
 		}
 		rc.Lock()
 		defer rc.Unlock()
-		rpcname := uri[len("/restconf/operations/"):]
+		rpcname := c.Path()[len("/restconf/operations/"):]
 		schema := rc.schemaOperations.GetSchema(rpcname)
 		if schema == nil {
-			return NewError(rc, fiber.StatusNotFound, ETypeApplication, ETagUnknownElement,
-				uri, fmt.Errorf("unable to identify rpc %s", rpcname))
+			return NewError(rc, fiber.StatusNotFound, ETypeProtocol, ETagUnknownElement,
+				c.Path(), fmt.Errorf("unable to identify rpc %s", rpcname))
 		}
-		// rdata := &RespData{nodes: []yangtree.DataNode{rc.DataRoot}}
-		// log.Println(rc.schemaOperations, schema)
-		// if schema.HasRPCInput() {
-		// 	log.Println(string(c.Body()))
-		// 	rpc, err := yangtree.New(schema)
-		// 	if err != nil {
-		// 		return rc.ResponseError(c, fiber.StatusInternalServerError, ETypeApplication,
-		// 			ETagOperationFailed, fmt.Errorf("unable to load the schema of the rpc %v: %v", schema, err))
-		// 	}
-		// 	contentType := string(c.Request().Header.ContentType())
-		// 	switch contentType {
-		// 	case "text/json", "application/json", "application/yang-data+json":
-		// 		err = yangtree.UnmarshalJSON(rpc, c.Body())
-		// 	case "text/yaml", "application/yaml", "application/yang-data+yaml":
-		// 		err = yangtree.UnmarshalYAML(rpc, c.Body())
-		// 	case "text/xml", "application/xml", "application/yang-data+xml":
-		// 		err = yangtree.UnmarshalXML(rpc, c.Body())
-		// 	default:
-		// 		rc.SetError(c, rdata, fiber.StatusNotImplemented, ETypeProtocol,
-		// 			ETagInvalidValue, errors.New("not supported Content-Type"))
-		// 	}
-		// 	if err != nil {
-		// 		return rc.SetError(c, rdata, fiber.StatusBadRequest,
-		// 			ETypeApplication, ETagMarlformedMessage,
-		// 			fmt.Errorf("parsing rpc failed: %v", err))
-		// 	}
-		// 	return nil
-		// }
-		return nil
+
+		rpc, err := yangtree.New(schema)
+		if err != nil {
+			return NewError(rc, fiber.StatusInternalServerError, ETypeProtocol,
+				ETagOperationFailed, c.Path(), err)
+		}
+
+		if schema.HasRPCInput() {
+			// log.Println(string(c.Body()))
+			contentType := string(c.Request().Header.ContentType())
+			switch contentType {
+			case "text/json", "application/json", "application/yang-data+json":
+				err = yangtree.UnmarshalJSON(rpc, c.Body())
+			case "text/yaml", "application/yaml", "application/yang-data+yaml":
+				err = yangtree.UnmarshalYAML(rpc, c.Body())
+			case "text/xml", "application/xml", "application/yang-data+xml":
+				err = yangtree.UnmarshalXML(rpc, c.Body())
+			default:
+				return NewError(rc, fiber.StatusUnsupportedMediaType, ETypeTransport,
+					ETagInvalidValue, c.Path(), "not supported Content-Type in request header")
+			}
+			// log.Println(rpc.Values()...)
+			if err != nil {
+				return NewError(rc, fiber.StatusBadRequest, ETypeApplication,
+					ETagMarlformedMessage, c.Path(), fmt.Sprintf("parsing error: %v", err))
+			}
+		}
+		// invoke user-callback interface
+		// check the result of the user-callback
+
+		if schema.HasRPCOutput() {
+			if output := rpc.Get("output"); output != nil {
+				return rc.Response(c, &RespData{Nodes: []yangtree.DataNode{output}})
+			}
+		}
+
+		// If the RPC operation is invoked without errors and if the "rpc" or
+		// "action" statement has no "output" section, the response message
+		// MUST NOT include a message-body and MUST send a "204 No Content"
+		// status-line instead.
+		return rc.Response(c, &RespData{Status: fiber.StatusNoContent})
 	})
 	return nil
 }
@@ -137,7 +147,6 @@ func InstallRouteData(app *fiber.App, rc *RESTCtrl) error {
 		}
 
 		// requestid := c.GetRespHeader("X-Request-Id")
-		RespData := &RespData{Nodes: []yangtree.DataNode{rc.DataRoot}}
 
 		switch method {
 		case "GET":
@@ -155,12 +164,12 @@ func InstallRouteData(app *fiber.App, rc *RESTCtrl) error {
 				return NewError(rc, fiber.StatusNotFound, ETypeApplication,
 					ETagDataMissing, c.Path(), "unable to find the requested resource")
 			}
-			RespData.Nodes = found
+			rdata := &RespData{Nodes: found}
+			return rc.Response(c, rdata)
 		default:
 			return NewError(rc, fiber.StatusMethodNotAllowed, ETypeProtocol, ETagOperationFailed,
 				uri, fmt.Errorf("HTTP %s not implemented yet", method))
 		}
-		return rc.Response(c, RespData)
 	})
 	return nil
 }
@@ -191,7 +200,7 @@ func InstallRouteRESTCONF(app *fiber.App, rc *RESTCtrl) error {
 			c.Set("Content-Type", accepts)
 		default:
 			return NewError(rc, fiber.StatusNotAcceptable, ETypeTransport,
-				ETagInvalidValue, c.Path(), "not supported Accepts (Content-Type)")
+				ETagInvalidValue, c.Path(), "unsupported Accepts (Content-Type) header")
 		}
 		if err := c.Next(); err != nil {
 			return err
@@ -217,7 +226,7 @@ func InstallRouteRESTCONF(app *fiber.App, rc *RESTCtrl) error {
 		case "GET":
 		default:
 			return NewError(rc, fiber.StatusMethodNotAllowed, ETypeTransport,
-				ETagOperationFailed, c.Path(), fmt.Errorf("HTTP GET only allowed for %s", c.Path()))
+				ETagAccessDenied, c.Path(), "HTTP GET only allowed for the path")
 		}
 		return rc.Response(c, &RespData{Nodes: []yangtree.DataNode{empty}})
 	})
@@ -226,7 +235,7 @@ func InstallRouteRESTCONF(app *fiber.App, rc *RESTCtrl) error {
 		case "GET":
 		default:
 			return NewError(rc, fiber.StatusMethodNotAllowed, ETypeTransport,
-				ETagOperationFailed, c.Path(), fmt.Errorf("HTTP GET only allowed for %s", c.Path()))
+				ETagAccessDenied, c.Path(), "HTTP GET only allowed for the path")
 		}
 		return rc.Response(c, &RespData{Nodes: []yangtree.DataNode{empty.Get("yang-library-version")}})
 	})
@@ -256,7 +265,7 @@ func InstallRouteHostMeta(app *fiber.App, rc *RESTCtrl) error {
 			return nil
 		default:
 			return NewError(rc, fiber.StatusMethodNotAllowed, ETypeTransport,
-				ETagOperationFailed, c.Path(), fmt.Errorf("HTTP GET only allowed for %s", c.Path()))
+				ETagAccessDenied, c.Path(), "HTTP GET only allowed for the path")
 		}
 	})
 	return nil
@@ -279,7 +288,7 @@ func InstallRouteSchemaPath(app *fiber.App, rc *RESTCtrl) error {
 			return nil
 		default:
 			return NewError(rc, fiber.StatusMethodNotAllowed, ETypeTransport,
-				ETagOperationFailed, c.Path(), fmt.Errorf("HTTP GET only allowed for %s", c.Path()))
+				ETagAccessDenied, c.Path(), "HTTP GET only allowed for the path")
 		}
 	})
 	return nil
