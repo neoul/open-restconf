@@ -37,12 +37,8 @@ var (
 	yangfiles     = pflag.StringArrayP("files", "f", []string{}, "yang files to load")
 	dir           = pflag.StringArrayP("dir", "d", []string{}, "directories to search yang includes and imports")
 	excludes      = pflag.StringArrayP("exclude", "e", []string{}, "yang modules to be excluded from path generation")
-)
 
-func loadSchema(file, dir, excludes []string) *RESTCtrl {
-	var err error
-	rc := &RESTCtrl{}
-	file = append(file,
+	restfiles = []string{
 		"modules/ietf-yang-library@2016-06-21.yang",
 		"modules/ietf-restconf@2017-01-26.yang",
 		// "modules/ietf-interfaces@2018-02-20.yang",
@@ -52,7 +48,13 @@ func loadSchema(file, dir, excludes []string) *RESTCtrl {
 		// "modules/example/example-mod.yang",
 		// "modules/example/example-ops.yang",
 		// "modules/example/example-actions.yang",
-	)
+	}
+)
+
+func loadSchema(file, dir, excludes []string) *RESTCtrl {
+	var err error
+	rc := &RESTCtrl{}
+	file = append(file, restfiles...)
 	rc.rootSchema, err = yangtree.Load(file, dir, excludes, yangtree.YANGTreeOption{YANGLibrary2016: true})
 	if err != nil {
 		if merr, ok := err.(yangtree.MultipleError); ok {
@@ -187,6 +189,15 @@ func main() {
 	if err := InstallRouteSchemaPath(app, rc); err != nil {
 		log.Fatalf("restconf: %v", err)
 	}
+	if err := InstallRouteYANGModules(app, library, *dir); err != nil {
+		log.Fatalf("restconf: %v", err)
+	}
+	if err := InstallRouteYANGModules(app, library, *yangfiles); err != nil {
+		log.Fatalf("restconf: %v", err)
+	}
+	if err := InstallRouteYANGModules(app, library, restfiles); err != nil {
+		log.Fatalf("restconf: %v", err)
+	}
 
 	log.Println("[modules loaded]")
 	mnames := make([]string, 0, len(rc.rootSchema.Modules.Modules))
@@ -209,6 +220,11 @@ func main() {
 		log.Println(" -", mnames[i])
 	}
 	log.Println("")
+
+	// nodes, _ := yangtree.Find(library, "module")
+	// node, _ := yangtree.ConvertToGroup(nodes[0].Schema(), nodes)
+	// b, _ := yangtree.MarshalYAMLIndent(node, "", " ") // yangtree.RepresentItself{}
+	// fmt.Println(string(b))
 
 	// start fiber.app
 	if err := app.Listen(*bindAddr); err != nil {

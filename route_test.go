@@ -26,9 +26,18 @@ func Test_RPath2XPath(t *testing.T) {
 		"modules-state/module",
 		"modules-state/module[name=1/1][revision=2020-08-18]",
 		"modules-state/module[name=1/1/1][revision=2020-08-18]",
-		"/modules-state/module=A,2020-08-18/UNKNOWN",
-		"/modules-state/module=A,2020-08-18/UNKNOWN",
-		"/modules-state/UNKNOWN",
+		"modules-state/module[name=A][revision=2020-08-18/UNKNOWN]", // unmatched UNKNOWN becomes a key
+		"",
+	}
+	wanterr := []bool{
+		false,
+		false,
+		false,
+		false,
+		false,
+		false,
+		false,
+		true,
 	}
 
 	type test struct {
@@ -40,20 +49,21 @@ func Test_RPath2XPath(t *testing.T) {
 	var tests []test
 	for i := range rpath {
 		tests = append(tests, test{
-			schema: rc.schemaData,
-			rpath:  &rpath[i],
-			want:   xpath[i],
+			schema:  rc.schemaData,
+			rpath:   &rpath[i],
+			want:    xpath[i],
+			wantErr: wanterr[i],
 		})
 	}
 	for _, tt := range tests {
-		t.Run(*tt.rpath, func(t *testing.T) {
-			got, err := RPath2XPath(tt.schema, tt.rpath)
+		t.Run(" "+*tt.rpath, func(t *testing.T) {
+			s, got, err := RPath2XPath(tt.schema, tt.rpath)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("RPath2XPath() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("RPath2XPath() error = %v, wantErr %v, schema=%v", err, tt.wantErr, s)
 				return
 			}
 			if got != tt.want {
-				t.Errorf("RPath2XPath() = %v, want %v", got, tt.want)
+				t.Errorf("RPath2XPath() = %v, want %v, schema=%v", got, tt.want, s)
 			}
 		})
 	}

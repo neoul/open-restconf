@@ -8,7 +8,7 @@ build: ## build restconf server
 	go build -o open-restconf main.go response.go route.go error.go utilities.go
 
 run: build ## run restconf server
-	./open-restconf -f modules/example/example-jukebox.yang -f modules/example/example-ops.yang \
+	./open-restconf -f modules/example/example-jukebox.yang -f modules/example/example-ops.yang -d modules \
 	--startup-format xml --startup testdata/jukebox.xml
 
 watch: ## hot-reloading

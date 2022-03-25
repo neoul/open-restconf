@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"path/filepath"
 	"strings"
 
 	"github.com/gofiber/fiber"
@@ -28,7 +29,7 @@ func rpathKey2xpathKey(xpathB *strings.Builder, schema *yangtree.SchemaNode, key
 }
 
 // RPath2XPath() converts RESTCONF URI(Route Path) to XPath
-func RPath2XPath(schema *yangtree.SchemaNode, uri *string) (string, error) {
+func RPath2XPath(schema *yangtree.SchemaNode, uri *string) (*yangtree.SchemaNode, string, error) {
 	var xpathB strings.Builder
 	pathnodes := strings.Split(*uri, "/")
 	snode := schema
@@ -36,11 +37,11 @@ func RPath2XPath(schema *yangtree.SchemaNode, uri *string) (string, error) {
 	for i := range pathnodes {
 		if index := strings.Index(pathnodes[i], "="); index >= 0 {
 			if keystr != "" {
-				return "", fmt.Errorf("failed to extract the key for %s", snode)
+				return nil, "", fmt.Errorf("failed to extract the key for %s", snode)
 			}
 			s := snode.GetSchema(pathnodes[i][:index])
 			if s == nil {
-				return "", fmt.Errorf("unable to find schema %s", pathnodes[i][:index])
+				return nil, "", fmt.Errorf("unable to find schema %s", pathnodes[i][:index])
 			}
 			snode = s
 			keystr = pathnodes[i][index+1:]
@@ -54,7 +55,7 @@ func RPath2XPath(schema *yangtree.SchemaNode, uri *string) (string, error) {
 					keystr = keystr + "/" + pathnodes[i]
 					continue
 				}
-				return "", fmt.Errorf("unable to find schema %s", pathnodes[i])
+				return nil, "", fmt.Errorf("unable to find schema %s", pathnodes[i])
 			}
 			if keystr != "" {
 				rpathKey2xpathKey(&xpathB, snode, &keystr)
@@ -71,7 +72,7 @@ func RPath2XPath(schema *yangtree.SchemaNode, uri *string) (string, error) {
 	if keystr != "" {
 		rpathKey2xpathKey(&xpathB, snode, &keystr)
 	}
-	return xpathB.String(), nil
+	return snode, xpathB.String(), nil
 }
 
 func InstallRouteRPC(app *fiber.App, rc *RESTCtrl) error {
@@ -137,6 +138,12 @@ func InstallRouteData(app *fiber.App, rc *RESTCtrl) error {
 	app.Group("/restconf/data", func(c *fiber.Ctx) error {
 		method := c.Method()
 		uri := c.Path()[len("/restconf/data"):]
+		schema, xpath, err := RPath2XPath(rc.schemaData, &uri)
+		if err != nil {
+			return NewError(rc, fiber.StatusInternalServerError, ETypeApplication,
+				ETagBadElement, c.Path(), err)
+		}
+		log.Println("requested data node:", schema)
 		switch method {
 		case "GET":
 			rc.RLock()
@@ -145,16 +152,10 @@ func InstallRouteData(app *fiber.App, rc *RESTCtrl) error {
 			rc.Lock()
 			defer rc.Unlock()
 		}
-
 		// requestid := c.GetRespHeader("X-Request-Id")
-
 		switch method {
 		case "GET":
-			xpath, err := RPath2XPath(rc.schemaData, &uri)
-			if err != nil {
-				return NewError(rc, fiber.StatusInternalServerError, ETypeApplication,
-					ETagBadElement, c.Path(), err)
-			}
+
 			found, err := yangtree.Find(rc.DataRoot, xpath)
 			if err != nil {
 				return NewError(rc, fiber.StatusInternalServerError, ETypeApplication,
@@ -164,8 +165,7 @@ func InstallRouteData(app *fiber.App, rc *RESTCtrl) error {
 				return NewError(rc, fiber.StatusNotFound, ETypeApplication,
 					ETagDataMissing, c.Path(), "unable to find the requested resource")
 			}
-			rdata := &RespData{Nodes: found}
-			return rc.Response(c, rdata)
+			return rc.Response(c, &RespData{Nodes: found})
 		default:
 			return NewError(rc, fiber.StatusMethodNotAllowed, ETypeProtocol, ETagOperationFailed,
 				uri, fmt.Errorf("HTTP %s not implemented yet", method))
@@ -291,5 +291,25 @@ func InstallRouteSchemaPath(app *fiber.App, rc *RESTCtrl) error {
 				ETagAccessDenied, c.Path(), "HTTP GET only allowed for the path")
 		}
 	})
+	return nil
+}
+
+func InstallRouteYANGModules(app *fiber.App, library yangtree.DataNode, yangfiles []string) error {
+	yfiles, _ := yangtree.FindYangFiles(yangfiles)
+	for i := range yfiles {
+		fname := filepath.Base(yfiles[i])
+		fname = strings.TrimSuffix(fname, ".yang")
+		mname := strings.Split(fname, "@")
+		if len(mname) == 1 {
+			mname = append(mname, "*")
+		}
+		if node, _ := yangtree.Find(library,
+			fmt.Sprintf("module[name=%s][revision=%s]", mname[0], mname[1])); len(node) > 0 {
+			node[0].SetValue(map[interface{}]interface{}{
+				"schema": "yang/" + yfiles[i],
+			})
+			app.Static("/yang/"+yfiles[i], yfiles[i])
+		}
+	}
 	return nil
 }

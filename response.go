@@ -10,9 +10,9 @@ import (
 
 //
 type RespData struct {
-	Nodes []yangtree.DataNode
-	// groupSearch bool // true if searching multipleNnodes
-	Status int // HTTP response status
+	Nodes   []yangtree.DataNode
+	isGroup bool // true if searching multipleNnodes
+	Status  int  // HTTP response status
 }
 
 func (rc *RESTCtrl) Response(c *fiber.Ctx, rdata *RespData) error {
@@ -49,7 +49,7 @@ func (rc *RESTCtrl) Response(c *fiber.Ctx, rdata *RespData) error {
 		var err error
 		var b []byte
 		var node yangtree.DataNode
-		if len(rdata.Nodes) > 1 {
+		if rdata.isGroup || len(rdata.Nodes) > 1 {
 			node, err = yangtree.ConvertToGroup(rdata.Nodes[0].Schema(), rdata.Nodes)
 			if err != nil {
 				// StatusPreconditionFailed - for GET or HEAD
